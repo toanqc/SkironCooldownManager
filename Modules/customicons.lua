@@ -553,6 +553,15 @@ local function ApplyGlobalSettings(frame)
 	end
 end
 
+function CustomIcons.ForEachActiveFrame(callback)
+	for _, frame in pairs(CustomItemFrames) do
+		if not frame.SCMReleased then callback(frame) end
+	end
+	for _, frame in pairs(CustomSpellFrames) do
+		if not frame.SCMReleased then callback(frame) end
+	end
+end
+
 function CustomIcons.HideIcons()
 	for _, customFrame in pairs(CustomItemFrames) do
 		Icons.SetChildVisibilityState(customFrame, false, true)
@@ -786,6 +795,7 @@ function CustomIcons.ProcessIcons(customConfig, validChildren, isGlobal)
 
 							CDM.AddChildToScopedGroup(validChildren, anchorGroup, frame, isGlobal)
 							CDM.AddChildToScopedGroup(Cache.cachedChildrenTbl, anchorGroup, frame, isGlobal)
+							if SCM.Keybinds then SCM.Keybinds.ApplyToFrame(frame) end
 						end
 					else
 						Icons.SetChildVisibilityState(customFrames[id], false, true)
