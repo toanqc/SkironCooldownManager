@@ -359,31 +359,6 @@ local function BuildKeyMap()
         end
     end
 
-    -- Base ACTIONBUTTON1-12 bindings cover vehicle/stance bar replacements
-    if GetBindingKey and GetActionInfo then
-        for i = 1, 12 do
-            local rawKey = GetBindingKey("ACTIONBUTTON" .. i)
-            if rawKey and rawKey ~= "" and rawKey ~= "●" then
-                local fmt = AbbreviateKey(rawKey)
-                if fmt ~= "" then
-                    for page = 0, 9 do
-                        local slot = page * 12 + i
-                        if not seenSlots[slot] then
-                            local aType, id = GetActionInfo(slot)
-                            if aType == "spell" then
-                                StoreSpell(map, id, fmt)
-                            elseif aType == "item" then
-                                StoreItem(map, id, fmt)
-                            elseif aType == "macro" then
-                                macros[#macros + 1] = { slot = slot, id = id, fmt = fmt }
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-
     for _, m in ipairs(macros) do
         local macroIdx
         if GetActionText and GetMacroIndexByName then
