@@ -387,7 +387,9 @@ local function SelectGlobalSettingsTab(tabWidget, group, options)
 		cooldownFontColor:SetRelativeWidth(0.33)
 		cooldownFontColor:SetLabel("Font Color")
 		cooldownFontColor:SetHasAlpha(true)
-		cooldownFontColor:SetColor(options.cooldownFontColor.r, options.cooldownFontColor.g, options.cooldownFontColor.b, options.cooldownFontColor.a)
+		local fontColorOpts = options.cooldownFontColor or { r = 1, g = 1, b = 1, a = 1 }
+		options.cooldownFontColor = fontColorOpts
+		cooldownFontColor:SetColor(fontColorOpts.r, fontColorOpts.g, fontColorOpts.b, fontColorOpts.a)
 		cooldownFontColor:SetCallback("OnValueChanged", function(_, _, r, g, b, a)
 			options.cooldownFontColor = { r = r, g = g, b = b, a = a }
 			SCM:ApplyAllCDManagerConfigs()

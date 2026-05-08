@@ -73,7 +73,7 @@ local function ApplyCooldownFont(cooldownFrame, options)
 				cooldownFontString:SetShadowColor(0, 0, 0, 0)
 				cooldownFontString:SetShadowOffset(0, 0)
 
-				local cooldownFontColor = options.cooldownFontColor
+				local cooldownFontColor = options.cooldownFontColor or { r = 1, g = 1, b = 1, a = 1 }
 				cooldownFontString:SetTextColor(cooldownFontColor.r, cooldownFontColor.g, cooldownFontColor.b, cooldownFontColor.a)
 
 				cooldownFontString:ClearAllPoints()
