@@ -630,6 +630,7 @@ function Keybinds.Enable()
     eventFrame:RegisterEvent("UPDATE_MACROS")
     eventFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
     eventFrame:RegisterEvent("ACTIONBAR_PAGE_CHANGED") -- Covers paging changes example druid forms
+    eventFrame:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR") -- Covers Dragon Riding mount/dismount
     eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
     eventFrame:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED")
     eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
