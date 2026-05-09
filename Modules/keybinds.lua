@@ -11,6 +11,7 @@ local DEFAULT_FONT = "Interface\\AddOns\\SkironCooldownManager\\Media\\fonts\\Ex
 
 local keyMap = nil
 local pendingRebuild = false
+local pendingOverrideRebuild = false
 local combatDirty = false
 
 -- ── Key abbreviation ─────────────────────────────────────────────────────────
@@ -615,6 +616,20 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
         return
     end
 
+    -- Give override-bar changes their own independent timer with a longer delay.
+    -- This prevents the dismount rebuild from being silently dropped when a
+    -- pendingRebuild (e.g. from ACTIONBAR_SLOT_CHANGED while mounted) is still running.
+    if event == "UPDATE_OVERRIDE_ACTIONBAR" then
+        if not pendingOverrideRebuild then
+            pendingOverrideRebuild = true
+            C_Timer.After(0.5, function()
+                pendingOverrideRebuild = false
+                Keybinds.Rebuild()
+            end)
+        end
+        return
+    end
+
     if pendingRebuild then return end
     pendingRebuild = true
     C_Timer.After(0.15, function()
@@ -642,6 +657,7 @@ function Keybinds.Disable()
     keyMap = nil
     combatDirty = false
     pendingRebuild = false
+    pendingOverrideRebuild = false
     Keybinds.RefreshAllFrames()
 end
 
