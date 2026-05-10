@@ -407,16 +407,6 @@ local function CastBar(self)
 	colorGroup:SetLayout("flow")
 	scrollFrame:AddChild(colorGroup)
 
-	local useClassColor = AceGUI:Create("CheckBox")
-    useClassColor:SetRelativeWidth(1.0)
-    useClassColor:SetLabel("Use Class Color")
-    useClassColor:SetValue(options.useClassColor)
-    useClassColor:SetCallback("OnValueChanged", function(_, _, value)
-        options.useClassColor = value
-        RefreshCastBar()
-    end)
-    colorGroup:AddChild(useClassColor)
-
 	local fillColor = AceGUI:Create("ColorPicker")
 	fillColor:SetRelativeWidth(0.25)
 	fillColor:SetLabel("Foreground Color")
@@ -475,6 +465,16 @@ local function CastBar(self)
 		colorGroup:AddChild(stageColor)
 	end
 
+	local useClassColor = AceGUI:Create("CheckBox")
+	useClassColor:SetRelativeWidth(0.33)
+	useClassColor:SetLabel("Use Class Color")
+	useClassColor:SetValue(options.useClassColor)
+	useClassColor:SetCallback("OnValueChanged", function(_, _, value)
+		options.useClassColor = value
+		RefreshCastBar()
+	end)
+	colorGroup:AddChild(useClassColor)
+
 	local anchorsGroup = AceGUI:Create("InlineGroup")
 	anchorsGroup:SetTitle("Anchors")
 	anchorsGroup:SetFullWidth(true)
@@ -483,8 +483,12 @@ local function CastBar(self)
 
 	AddAnchorControls(anchorsGroup, "Cast Bar Anchor", options.anchors, RefreshCastBar)
 	AddHeader(anchorsGroup, "Spell name and duration are anchored to the bar area inside the container.")
-	AddCastBarTextAnchorControls(anchorsGroup, "Spell Name Anchor", options.spellName, RefreshCastBar)
-	AddCastBarTextAnchorControls(anchorsGroup, "Cast Duration Anchor", options.castDuration, RefreshCastBar)
+	AddCastBarTextAnchorControls(anchorsGroup, "Spell Name Anchor", options.spellName, function()
+		SCM:RefreshCastBarLayout()
+	end)
+	AddCastBarTextAnchorControls(anchorsGroup, "Cast Duration Anchor", options.castDuration, function()
+		SCM:RefreshCastBarLayout()
+	end)
 
 	UpdateIconControlStates(iconOptions, iconPosition, matchBarHeight, iconZoom, iconSize)
 	scrollFrame:DoLayout()

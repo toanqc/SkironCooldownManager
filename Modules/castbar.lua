@@ -218,7 +218,7 @@ local function UpdateStatusBarLook(fillColor, bgColor)
 	end
 	local durationWidth = min(statusWidth, fontSize * 3)
 
-	ApplyTextStyle(castBar.SpellNameText, fontPath, fontSize, fontOutline, "LEFT", max(statusWidth - durationWidth, 1))
+	ApplyTextStyle(castBar.SpellNameText, fontPath, fontSize, fontOutline, "LEFT", max(castBar.SpellNameText:GetStringWidth(), 1))
 	ApplyTextStyle(castBar.CastDurationText, fontPath, fontSize, fontOutline, "RIGHT", durationWidth)
 
 	local spellName = options.spellName
@@ -295,17 +295,14 @@ local function HandleCast(durationObject, castType, empoweredStages, isChannelSt
 		spellName, _, spellTexture, _, _, _, notInterruptible, spellID = UnitChannelInfo("player")
 	end
 
-	-- Check if the spell is uninterruptible (standard behavior)
     if notInterruptible then
         fillColor = options.interruptColor
     else
-        -- If interruptible, check for Class Color override
         if options.useClassColor then
             local _, class = UnitClass("player")
             local color = (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS)[class]
             fillColor = { r = color.r, g = color.g, b = color.b, a = options.fgColor.a }
         else
-            -- Fallback to manual foreground color
             fillColor = options.fgColor
         end
     end
@@ -315,7 +312,6 @@ local function HandleCast(durationObject, castType, empoweredStages, isChannelSt
         return
     end
 
-    -- Store the decided color and update the look
     castBar.CurrentFillColor = fillColor
     UpdateStatusBarLook(fillColor)
 	
@@ -411,6 +407,8 @@ local function HandleCast(durationObject, castType, empoweredStages, isChannelSt
 	castBar.Status:SetValue(isChannel and remaining or totalDuration - remaining)
 
 	castBar.SpellNameText:SetText(spellName or "")
+	castBar.SpellNameText:SetWidth(max(castBar.SpellNameText:GetStringWidth(), 1))
+	ApplyRelativeAnchor(castBar.SpellNameText, options.spellName.anchors, castBar.Status)
 	castBar.CastDurationText:SetText(FormatDurationText(remaining))
 
 	castBar:SetScript("OnUpdate", function()
@@ -451,6 +449,20 @@ function SCM:RefreshCastBarWidth(delay)
 			end
 		end
 	end)
+end
+
+function SCM:RefreshCastBarLayout()
+	local castBar = self.CastBar
+	if not castBar then
+		return
+	end
+
+	castBar.barOptions = self.db.profile.options.castBar
+	UpdateStatusBarLook()
+
+	if castBar:IsShown() and castBar.CurrentEmpoweredStages and castBar.Status:GetStatusBarTexture() then
+		CreatePips(castBar.CurrentEmpoweredStages)
+	end
 end
 
 function SCM:CreateCastBar()

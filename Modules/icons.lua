@@ -255,12 +255,16 @@ local function ProcessBuffIcon(child, childData, options)
 	Cooldowns.SetupBuffIconHooks(child, options)
 	child.SCMBuffOptions = options
 
-	--local isInactive = not child.Cooldown:IsShown() and not child.auraInstanceID
+	local isInactive
+	if child.SCMCheckCooldownFrame then
+		isInactive = not child.Cooldown:IsShown()
+	else
+		isInactive = (not child.auraInstanceID and (FindSpellOverrideByID(child.SCMSpellID) == child.SCMSpellID))
+	end
 
-	local isInactive = not child.auraInstanceID and (FindSpellOverrideByID(child.SCMSpellID) == child.SCMSpellID) and not child.SCMFakeAuraInstanceID
 	local forceShow = SCM.simulateBuffs or (not SCM.isHideWhenInactiveEnabled and childData.alwaysShow)
 	local shouldHide = isInactive and not forceShow
-
+	
 	if shouldHide then
 		Icons.SetChildVisibilityState(child, false, true)
 		return
@@ -280,6 +284,7 @@ end
 
 local function ProcessBuffBar(child, childData, options)
 	Icons.SetupBuffBarHooks(child)
+
 	local isInactive = not child.auraInstanceID and not child.SCMFakeAuraInstanceID
 	local forceShow = SCM.simulateBuffs or (not SCM.isHideWhenInactiveEnabled and childData.alwaysShow)
 	local shouldHide = isInactive and not forceShow
