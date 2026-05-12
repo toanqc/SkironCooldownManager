@@ -369,7 +369,6 @@ local function ProcessSingleChild(child, validChildren, categoryIndex, isBuffIco
 		ProcessBuffIcon(child, groupConfig, options)
 	else
 		ProcessRegularIcon(child, groupConfig, options)
-		if SCM.Keybinds then SCM.Keybinds.ApplyToViewerChild(child) end
 	end
 
 	if not InCombatLockdown() then

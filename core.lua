@@ -97,7 +97,6 @@ local function RefreshCooldownViewerData(releaseCustomIcons)
 	SCM:ApplyAllCDManagerConfigs()
 	SCM:UpdateCastBar()
 	SCM:RefreshResourceBarConfig()
-	if SCM.Keybinds then SCM.Keybinds.RefreshAllFrames() end
 end
 SCM.RefreshCooldownViewerData = RefreshCooldownViewerData
 
@@ -129,7 +128,6 @@ function SCM:PLAYER_ENTERING_WORLD(isInitialLogin, isReload)
 		SCM:SetHooks()
 		SCM:InitializeResourceBars()
 		SCM:CreateCastBar()
-		if SCM.Keybinds then SCM.Keybinds.OnSettingChanged() end
 	elseif self.isInInstance ~= IsInInstance() then
 		RefreshCooldownViewerData()
 	end
@@ -261,7 +259,6 @@ local function OnProfileChanged(_, _, _, skipReset)
 	SCM:ApplyOptions()
 
 	RefreshCooldownViewerData(true)
-	if SCM.Keybinds then SCM.Keybinds.OnSettingChanged() end
 
 	local options = SCM.db.profile.options
 	if SCM.OptionsFrame and SCM.OptionsFrame:IsShown() and options and options.showAnchorHighlight then

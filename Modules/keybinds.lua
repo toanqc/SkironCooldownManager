@@ -507,6 +507,9 @@ local function ApplyToCustomFrame(frame, map, cfg)
         key = config.spellID and QuerySpell(map, config.spellID)
     elseif iconType == "item" then
         key = config.itemID and QueryItem(map, config.itemID)
+        if not key and frame.SCMSpellID then
+            key = QuerySpell(map, frame.SCMSpellID)
+        end
     elseif iconType == "slot" then
         if config.slotID and GetInventoryItemID then
             local itemID = GetInventoryItemID("player", config.slotID)
@@ -599,7 +602,14 @@ end
 -- ── Events ────────────────────────────────────────────────────────────────────
 
 local eventFrame = CreateFrame("Frame")
-eventFrame:SetScript("OnEvent", function(_, event, arg1)
+eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
+    if event == "PLAYER_ENTERING_WORLD" then
+        if arg1 or arg2 then -- isInitialLogin or isReload
+            Keybinds.OnSettingChanged()
+        end
+        return
+    end
+
     if event == "PLAYER_REGEN_ENABLED" then
         if combatDirty then
             combatDirty = false
@@ -649,11 +659,13 @@ function Keybinds.Enable()
     eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
     eventFrame:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED")
     eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     Keybinds.Rebuild()
 end
 
 function Keybinds.Disable()
     eventFrame:UnregisterAllEvents()
+    eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     keyMap = nil
     combatDirty = false
     pendingRebuild = false
@@ -669,3 +681,13 @@ function Keybinds.OnSettingChanged()
         Keybinds.Disable()
     end
 end
+
+-- ── Bootstrap ────────────────────────────────────────────────────────────────
+
+-- Re-apply keybinds after any full viewer rebuild (profile/spec/scale changes).
+-- SCM.RefreshCooldownViewerData is set on the table in core.lua before this file loads.
+hooksecurefunc(SCM, "RefreshCooldownViewerData", Keybinds.RefreshAllFrames)
+
+-- PLAYER_ENTERING_WORLD is registered here so it survives Disable() which calls
+-- UnregisterAllEvents(). Enable() also re-registers it to keep the set consistent.
+eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")

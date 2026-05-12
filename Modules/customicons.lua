@@ -827,8 +827,6 @@ function CustomIcons.ProcessIcons(customConfig, validChildren, isGlobal)
 							end
 
 							CDM.AddChildToScopedGroup(validChildren, anchorGroup, frame, isGlobal)
-							CDM.AddChildToScopedGroup(Cache.cachedChildrenTbl, anchorGroup, frame, isGlobal)
-							if SCM.Keybinds then SCM.Keybinds.ApplyToFrame(frame) end
 						end
 					else
 						Icons.SetChildVisibilityState(customFrames[id], false, true)
