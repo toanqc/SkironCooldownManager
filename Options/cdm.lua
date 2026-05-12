@@ -2,6 +2,8 @@ local SCM = select(2, ...)
 local AceGUI = LibStub("AceGUI-3.0")
 local LibCustomGlow = LibStub("LibCustomGlow-1.0")
 local Utils = SCM.Utils
+local CustomIcons = SCM.CustomIcons
+local Constants = SCM.Constants
 local ToGlobalGroup = Utils.ToGlobalGroup
 local ToBuffBarGroup = Utils.ToBuffBarGroup
 local GetCooldownConfigKey = Utils.GetCooldownConfigKey
@@ -35,7 +37,9 @@ local iconTypeTabs = {
 		{ value = "load", text = "Load Conditions" },
 	},
 	spell = {},
-	item = {},
+	item = {
+		{ value = "items", text = "Items" },
+	},
 	timer = {},
 	slot = {},
 }
@@ -709,12 +713,10 @@ local function SelectAdvancedRowSettings(self, tabGroup, rowConfig, rowIndex, an
 		end)
 		self:AddChild(fontSize)
 	end
-
-	self:DoLayout()
 end
 
-local function SelectRow(self, data, anchorIndex, rowIndex, rowTabsTbl, mode, options, isProfileConfig)
-	self:ReleaseChildren()
+local function SelectRow(widget, rowWidget, parentWidget, scrollFrame, data, anchorIndex, rowIndex, rowTabsTbl, mode, options, isProfileConfig)
+	widget:ReleaseChildren()
 
 	local isGlobal = mode == "global"
 	local isBuffBar = mode == "buffbars"
@@ -733,7 +735,7 @@ local function SelectRow(self, data, anchorIndex, rowIndex, rowTabsTbl, mode, op
 	iconWidth:SetLabel(widthLabel)
 	iconWidth:SetValue(rowConfig.iconWidth or rowConfig.size)
 
-	self:AddChild(iconWidth)
+	widget:AddChild(iconWidth)
 
 	local iconHeight = AceGUI:Create("Slider")
 	iconHeight:SetRelativeWidth(0.33)
@@ -774,7 +776,7 @@ local function SelectRow(self, data, anchorIndex, rowIndex, rowTabsTbl, mode, op
 
 		ApplyModeConfigUpdate(anchorIndex, mode)
 	end)
-	self:AddChild(iconHeight)
+	widget:AddChild(iconHeight)
 
 	local limit = AceGUI:Create("Slider")
 	limit:SetRelativeWidth(0.33)
@@ -785,24 +787,26 @@ local function SelectRow(self, data, anchorIndex, rowIndex, rowTabsTbl, mode, op
 		rowConfig.limit = value
 		ApplyModeConfigUpdate(anchorIndex, mode)
 	end)
-	self:AddChild(limit)
+	widget:AddChild(limit)
 
 	local advancedRowSettings = AceGUI:Create("TabGroup")
 	local advancedTabs = isBuffBar and { { value = "general", text = "General" }, { value = "applications", text = "Stacks (Alpha)" } }
 		or { { value = "general", text = "General" }, { value = "charges", text = "Charges" }, { value = "applications", text = "Stacks" }, { value = "cooldowns", text = "Cooldowns" } }
-	advancedRowSettings:SetLayout("flow")
+	advancedRowSettings:SetAutoAdjustHeight(false)
+	advancedRowSettings:SetHeight(150)
 	advancedRowSettings:SetFullWidth(true)
+	advancedRowSettings:SetLayout("flow")
 	advancedRowSettings:SetTabs(advancedTabs)
 	advancedRowSettings:SetCallback("OnGroupSelected", function(self, event, tabGroup)
 		SelectAdvancedRowSettings(self, tabGroup, rowConfig, rowIndex, anchorIndex, mode, options)
 	end)
 	advancedRowSettings:SelectTab("general")
-	self:AddChild(advancedRowSettings)
+	widget:AddChild(advancedRowSettings)
 
 	local buttonGroup = AceGUI:Create("SimpleGroup")
 	buttonGroup:SetFullWidth(true)
 	buttonGroup:SetLayout("flow")
-	self:AddChild(buttonGroup)
+	widget:AddChild(buttonGroup)
 
 	local addRowButton = AceGUI:Create("Button")
 	addRowButton:SetText("Add Row")
@@ -822,8 +826,8 @@ local function SelectRow(self, data, anchorIndex, rowIndex, rowTabsTbl, mode, op
 		table.sort(rowTabsTbl, function(a, b)
 			return a.value < b.value
 		end)
-		self:SetTabs(rowTabsTbl)
-		self:SelectTab(nextIndex)
+		widget:SetTabs(rowTabsTbl)
+		widget:SelectTab(nextIndex)
 		ApplyModeConfigUpdate(anchorIndex, mode)
 	end)
 	buttonGroup:AddChild(addRowButton)
@@ -853,12 +857,11 @@ local function SelectRow(self, data, anchorIndex, rowIndex, rowTabsTbl, mode, op
 			rowTabsTbl[i].text = "Row " .. i
 		end
 
-		self:SetTabs(rowTabsTbl)
-		self:SelectTab(#rowTabsTbl)
+		widget:SetTabs(rowTabsTbl)
+		widget:SelectTab(#rowTabsTbl)
 		ApplyModeConfigUpdate(anchorIndex, mode)
 	end)
 	buttonGroup:AddChild(deleteRowButton)
-	self:DoLayout()
 end
 
 local function AddStateOptions(stateType, iconSettingsTabs, iconSettings, scrollFrame, value, options, buttonConfig)
@@ -886,8 +889,8 @@ local function CreateStateDropdown(iconSettingsTabs, iconSettings, scrollFrame, 
 	stateType:SetValue("ready")
 end
 
-local function SelectAnchor(anchorWidget, frame, anchorIndex, anchorTabsTbl, mode)
-	anchorWidget:ReleaseChildren()
+local function SelectAnchor(widget, parentWidget, anchorIndex, anchorTabsTbl, mode)
+	widget:ReleaseChildren()
 
 	SCM.activeAnchorSettings = anchorIndex
 	local options = SCM.db.profile.options
@@ -931,7 +934,7 @@ local function SelectAnchor(anchorWidget, frame, anchorIndex, anchorTabsTbl, mod
 
 	local scrollFrame = AceGUI:Create("ScrollFrame")
 	scrollFrame:SetLayout("flow")
-	anchorWidget:AddChild(scrollFrame)
+	widget:AddChild(scrollFrame)
 
 	local anchorOptions = AceGUI:Create("InlineGroup")
 	anchorOptions:SetLayout("flow")
@@ -953,8 +956,8 @@ local function SelectAnchor(anchorWidget, frame, anchorIndex, anchorTabsTbl, mod
 	addAnchorButton:SetCallback("OnClick", function()
 		local nextIndex = (isGlobal and SCM:AddGlobalAnchor(anchorTabsTbl)) or (isBuffBar and SCM:AddBuffBarAnchor(anchorTabsTbl)) or SCM:AddAnchor(anchorTabsTbl)
 		ApplyModeConfigUpdate(nextIndex, mode)
-		anchorWidget:SetTabs(anchorTabsTbl)
-		anchorWidget:SelectTab(nextIndex)
+		widget:SetTabs(anchorTabsTbl)
+		widget:SelectTab(nextIndex)
 	end)
 	buttonGroup:AddChild(addAnchorButton)
 
@@ -970,8 +973,8 @@ local function SelectAnchor(anchorWidget, frame, anchorIndex, anchorTabsTbl, mod
 		else
 			SCM:RemoveAnchor(anchorIndex, anchorTabsTbl)
 		end
-		anchorWidget:SetTabs(anchorTabsTbl)
-		anchorWidget:SelectTab(#anchorTabsTbl)
+		widget:SetTabs(anchorTabsTbl)
+		widget:SelectTab(#anchorTabsTbl)
 	end)
 	buttonGroup:AddChild(deleteAnchorButton)
 
@@ -986,7 +989,7 @@ local function SelectAnchor(anchorWidget, frame, anchorIndex, anchorTabsTbl, mod
 				GetProfileAnchorConfig()
 			end
 			ApplyModeConfigUpdate(anchorIndex, mode)
-			anchorWidget:SelectTab(anchorIndex)
+			widget:SelectTab(anchorIndex)
 		end)
 		useGlobalProfileConfig:SetCallback("OnEnter", function(self)
 			GameTooltip:SetOwner(self.frame, "ANCHOR_CURSOR")
@@ -1033,7 +1036,7 @@ local function SelectAnchor(anchorWidget, frame, anchorIndex, anchorTabsTbl, mod
 	anchorOptions:AddChild(relativePoint)
 
 	local grow = AceGUI:Create("Dropdown")
-	grow:SetRelativeWidth(0.33)
+	grow:SetRelativeWidth(0.25)
 	grow:SetList(SCM.Constants.GrowthDirections)
 	grow:SetLabel("Primary Growth")
 	grow:SetValue(data.grow or "CENTERED")
@@ -1044,7 +1047,7 @@ local function SelectAnchor(anchorWidget, frame, anchorIndex, anchorTabsTbl, mod
 	anchorOptions:AddChild(grow)
 
 	local secondaryGrow = AceGUI:Create("Dropdown")
-	secondaryGrow:SetRelativeWidth(0.33)
+	secondaryGrow:SetRelativeWidth(0.25)
 	secondaryGrow:SetList(SCM.Constants.SecondaryGrowthDirections)
 	secondaryGrow:SetLabel("Secondary Growth")
 	secondaryGrow:SetValue(data.secondaryGrow or "DOWN")
@@ -1055,7 +1058,7 @@ local function SelectAnchor(anchorWidget, frame, anchorIndex, anchorTabsTbl, mod
 	anchorOptions:AddChild(secondaryGrow)
 
 	local spacing = AceGUI:Create("Slider")
-	spacing:SetRelativeWidth(0.33)
+	spacing:SetRelativeWidth(0.25)
 	spacing:SetSliderValues(-10, 50, 0.1)
 	spacing:SetLabel("Spacing")
 	spacing:SetValue(data.spacing or 0)
@@ -1064,6 +1067,17 @@ local function SelectAnchor(anchorWidget, frame, anchorIndex, anchorTabsTbl, mod
 		ApplyModeConfigUpdate(anchorIndex, mode)
 	end)
 	anchorOptions:AddChild(spacing)
+
+	local frameStrata = AceGUI:Create("Dropdown")
+	frameStrata:SetRelativeWidth(0.25)
+	frameStrata:SetList(SCM.Constants.FrameStrata, SCM.Constants.FrameStrataSorted)
+	frameStrata:SetLabel("Frame Strata")
+	frameStrata:SetValue(data.frameStrata or "")
+	frameStrata:SetCallback("OnValueChanged", function(self, event, value)
+		data.frameStrata = value ~= "" and value or nil
+		ApplyModeConfigUpdate(anchorIndex, mode)
+	end)
+	anchorOptions:AddChild(frameStrata)
 
 	local xOffset = AceGUI:Create("Slider")
 	xOffset:SetRelativeWidth(0.5)
@@ -1094,10 +1108,12 @@ local function SelectAnchor(anchorWidget, frame, anchorIndex, anchorTabsTbl, mod
 
 	local rowTabs = AceGUI:Create("TabGroup")
 	rowTabs:SetLayout("flow")
+	rowTabs:SetAutoAdjustHeight(false)
 	rowTabs:SetFullWidth(true)
+	rowTabs:SetHeight(280)
 	rowTabs:SetTabs(rowTabsTbl)
 	rowTabs:SetCallback("OnGroupSelected", function(self, event, rowIndex)
-		SelectRow(self, data, anchorIndex, rowIndex, rowTabsTbl, mode, options, isProfileConfig)
+		SelectRow(self, widget, parentWidget, scrollFrame, data, anchorIndex, rowIndex, rowTabsTbl, mode, options, isProfileConfig)
 	end)
 	rowTabs:SelectTab(1)
 	anchorOptions:AddChild(rowTabs)
@@ -1336,27 +1352,6 @@ local function SelectAnchor(anchorWidget, frame, anchorIndex, anchorTabsTbl, mod
 										end)
 										iconSettingsTabs:AddChild(showGCD)
 
-										local showNotUsable = AceGUI:Create("CheckBox")
-										showNotUsable:SetLabel("Show Not Usable")
-										showNotUsable:SetRelativeWidth(0.5)
-										showNotUsable:SetValue(buttonConfig.showNotUsable)
-										showNotUsable:SetCallback("OnValueChanged", function(self, event, value)
-											buttonConfig.showNotUsable = value or nil
-											ApplyIconConfigUpdate()
-										end)
-										iconSettingsTabs:AddChild(showNotUsable)
-
-										local showOutOfRange = AceGUI:Create("CheckBox")
-										showOutOfRange:SetLabel("Show Out Of Range")
-										showOutOfRange:SetRelativeWidth(0.5)
-										showOutOfRange:SetValue(buttonConfig.showOutOfRange)
-										showOutOfRange:SetCallback("OnValueChanged", function(self, event, value)
-											buttonConfig.showOutOfRange = value
-											C_Spell.EnableSpellRangeCheck(buttonData.spellID, value)
-											ApplyIconConfigUpdate()
-										end)
-										iconSettingsTabs:AddChild(showOutOfRange)
-
 										if buttonData.iconType == "item" then
 											local showCraftQuality = AceGUI:Create("CheckBox")
 											showCraftQuality:SetLabel("Show Craft Quality")
@@ -1367,6 +1362,27 @@ local function SelectAnchor(anchorWidget, frame, anchorIndex, anchorTabsTbl, mod
 												ApplyIconConfigUpdate()
 											end)
 											iconSettingsTabs:AddChild(showCraftQuality)
+										elseif buttonData.iconType == "spell" then
+											local showNotUsable = AceGUI:Create("CheckBox")
+											showNotUsable:SetLabel("Show Not Usable")
+											showNotUsable:SetRelativeWidth(0.5)
+											showNotUsable:SetValue(buttonConfig.showNotUsable)
+											showNotUsable:SetCallback("OnValueChanged", function(self, event, value)
+												buttonConfig.showNotUsable = value or nil
+												ApplyIconConfigUpdate()
+											end)
+											iconSettingsTabs:AddChild(showNotUsable)
+
+											local showOutOfRange = AceGUI:Create("CheckBox")
+											showOutOfRange:SetLabel("Show Out Of Range")
+											showOutOfRange:SetRelativeWidth(0.5)
+											showOutOfRange:SetValue(buttonConfig.showOutOfRange)
+											showOutOfRange:SetCallback("OnValueChanged", function(self, event, value)
+												buttonConfig.showOutOfRange = value
+												C_Spell.EnableSpellRangeCheck(buttonData.spellID, value)
+												ApplyIconConfigUpdate()
+											end)
+											iconSettingsTabs:AddChild(showOutOfRange)
 										end
 									else
 										local forceActiveSwipe = AceGUI:Create("CheckBox")
@@ -1478,13 +1494,18 @@ local function SelectAnchor(anchorWidget, frame, anchorIndex, anchorTabsTbl, mod
 										loadRaces:SetMultiselect(true)
 										loadRaces:SetDisabled(not buttonConfig.useLoadRace)
 										loadRaces:SetCallback("OnValueChanged", function(_, _, key, value)
-											buttonConfig.loadRaces = buttonConfig.loadRaces or GetDefaultCustomIconLoadRaces()
+											buttonConfig.loadRaces = buttonConfig.loadRaces or CustomIcons.GetDefaultLoadRaces()
 											buttonConfig.loadRaces[key] = value
+
+											if type(Constants.Races[key]) == "number" then
+												buttonConfig.loadRaces[Constants.Races[key]] = value
+											end
+
 											ApplyIconConfigUpdate()
 										end)
 
 										if not buttonConfig.loadRaces then
-											buttonConfig.loadRaces = GetDefaultCustomIconLoadRaces()
+											buttonConfig.loadRaces = CustomIcons.GetDefaultLoadRaces()
 										end
 
 										for key, value in pairs(buttonConfig.loadRaces) do
@@ -1580,6 +1601,100 @@ local function SelectAnchor(anchorWidget, frame, anchorIndex, anchorTabsTbl, mod
 								end
 							elseif group == "state" then
 								CreateStateDropdown(self, iconSettings, scrollFrame, options, buttonConfig)
+							elseif group == "items" then
+								buttonConfig.customItems = buttonConfig.customItems or {}
+
+								local listContainer = AceGUI:Create("SimpleGroup")
+								listContainer:SetLayout("flow")
+								listContainer:SetFullWidth(true)
+
+								local pendingItemLoads = {}
+								local RefreshList
+
+								local function GetCustomItemDisplay(itemID)
+									local itemName = C_Item.GetItemNameByID(itemID)
+									local itemTexture = C_Item.GetItemIconByID(itemID)
+									local isLoaded = itemName ~= nil and itemTexture ~= nil
+									local qualityAtlas = Utils.GetCustomItemCraftQualityAtlas(itemID)
+									local qualityIcon = qualityAtlas and ("|A:%s:45:45|a"):format(qualityAtlas) or ""
+									itemTexture = itemTexture or 134400
+									return ("|T%s:30:30:5:0:30:30:3:27:3:27|t%s%s"):format(itemTexture, qualityIcon, itemName or ("Item ID " .. itemID)), isLoaded
+								end
+
+								local function RequestCustomItemLoad(itemID)
+									if pendingItemLoads[itemID] then
+										return
+									end
+
+									pendingItemLoads[itemID] = true
+									local item = Item:CreateFromItemID(itemID)
+									item:ContinueOnItemLoad(function()
+										pendingItemLoads[itemID] = nil
+										if listContainer.frame and listContainer.frame:IsShown() then
+											RefreshList()
+										end
+									end)
+								end
+
+								RefreshList = function()
+									listContainer:ReleaseChildren()
+
+									for i, itemID in ipairs(buttonConfig.customItems) do
+										itemID = tonumber(itemID)
+										if itemID then
+											buttonConfig.customItems[i] = itemID
+
+											local row = AceGUI:Create("SimpleGroup")
+											row:SetLayout("flow")
+											row:SetFullWidth(true)
+											listContainer:AddChild(row)
+
+											local label = AceGUI:Create("Label")
+											local text, isLoaded = GetCustomItemDisplay(itemID)
+											label:SetText(text)
+											label:SetRelativeWidth(0.8)
+											label:SetFontObject(GameFontHighlight)
+											label:SetHeight(38)
+											label:SetJustifyV("MIDDLE")
+											row:AddChild(label)
+
+											if not isLoaded then
+												RequestCustomItemLoad(itemID)
+											end
+
+											local removeBtn = AceGUI:Create("Button")
+											removeBtn:SetText("Delete")
+											removeBtn:SetRelativeWidth(0.15)
+											removeBtn:SetCallback("OnClick", function()
+												table.remove(buttonConfig.customItems, i)
+												RefreshList()
+												ApplyIconConfigUpdate()
+											end)
+											row:AddChild(removeBtn)
+										end
+									end
+
+									listContainer:DoLayout()
+									iconSettingsTabs:DoLayout()
+									scrollFrame:DoLayout()
+								end
+
+								local addItemButton = AceGUI:Create("EditBox")
+								addItemButton:SetRelativeWidth(0.8)
+								addItemButton:SetLabel("Add Fallback Item IDs")
+								addItemButton:SetCallback("OnEnterPressed", function(self, _, value)
+									local itemID = value and tonumber(value)
+									if itemID and itemID > 0 then
+										table.insert(buttonConfig.customItems, itemID)
+										self:SetText("")
+										RefreshList()
+										ApplyIconConfigUpdate()
+									end
+								end)
+								iconSettingsTabs:AddChild(addItemButton)
+								iconSettingsTabs:AddChild(listContainer)
+
+								RefreshList()
 							end
 
 							iconSettings:DoLayout()
@@ -1690,12 +1805,10 @@ local function CreateAnchorTabGroup(parent, frame, mode)
 
 	anchorTabs:SetTabs(anchorTabsTbl)
 	anchorTabs:SetCallback("OnGroupSelected", function(self, event, anchorIndex)
-		SelectAnchor(self, frame, anchorIndex, anchorTabsTbl, mode)
+		SelectAnchor(self, parent, anchorIndex, anchorTabsTbl, mode)
 	end)
-	anchorTabs:SelectTab(1)
-	--Not sure yet why I have to call this twice
-	SelectAnchor(anchorTabs, frame, 1, anchorTabsTbl, mode)
 	parent:AddChild(anchorTabs)
+	anchorTabs:SelectTab(1)
 end
 
 local function GetCopyClassList()

@@ -138,7 +138,9 @@ function SCM:PLAYER_ENTERING_WORLD(isInitialLogin, isReload)
 end
 
 function SCM:BAG_UPDATE_DELAYED()
-	SCM.CustomIcons.UpdateItemCountText()
+	if SCM.CustomIcons.UpdateItemCountText() then
+		SCM:ApplyAnchorGroupByIconType("item")
+	end
 end
 
 function SCM:UNIT_SPELLCAST_SUCCEEDED(_, _, spellID)
@@ -150,7 +152,6 @@ function SCM:SPELL_UPDATE_COOLDOWN(spellID)
 		return config.spellID == spellID or config.iconType == "item"
 	end
 
-	SCM.CustomIcons.UpdateItemCountText(spellID)
 	SCM:ApplyAnchorGroupByIconTypes(false, predicate, "spell", "item", "slot")
 	SCM:UpdateCustomIconsGCD()
 end

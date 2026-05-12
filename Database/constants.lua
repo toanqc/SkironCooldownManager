@@ -39,6 +39,30 @@ Constants.SecondaryGrowthDirections = {
 	UP = "Up",
 }
 
+Constants.FrameStrata = {
+	[""] = "Default",
+	BACKGROUND = "Background",
+	LOW = "Low",
+	MEDIUM = "Medium",
+	HIGH = "High",
+	DIALOG = "Dialog",
+	FULLSCREEN = "Fullscreen",
+	FULLSCREEN_DIALOG = "Fullscreen Dialog",
+	-- TOOLTIP = "Tooltip",
+}
+
+Constants.FrameStrataSorted = {
+	"",
+	"BACKGROUND",
+	"LOW",
+	"MEDIUM",
+	"HIGH",
+	"DIALOG",
+	"FULLSCREEN",
+	"FULLSCREEN_DIALOG",
+	-- "TOOLTIP",
+}
+
 Constants.TextOutline = {
 	[""] = "None",
 	OUTLINE = "Outline",
@@ -383,10 +407,10 @@ Constants.Races = {
 	[37] = true, -- Mechagnome
 	[52] = true, -- Dracthyr (Alliance)
 	[70] = true, -- Dracthyr (Horde)
-	[84] = true, -- Earthen (Horde)
-	[85] = true, -- Earthen (Alliance)
-	[86] = true, -- Haranir
-	[91] = true, -- Haranir
+	[84] = 85, -- Earthen (Horde)
+	[85] = 84, -- Earthen (Alliance)
+	[86] = 91, -- Haranir
+	[91] = 86, -- Haranir
 }
 
 Constants.FakeAuras = {
@@ -395,6 +419,9 @@ Constants.FakeAuras = {
 	[104316] = 12, -- Call Dreadstalkers
 	[1276672] = 12, -- Summon Doomguard (not even Blizzard shows that)
 	[26573] = 12, -- Consecration
+	-- [373276] = 24, -- Idol of Yogg-Saron
+	[451234] = 6, -- Voidwrath
+	[34433] = 6, -- Shadowfiend
 }
 
 Constants.TargetAuras = {

@@ -264,7 +264,7 @@ local function ProcessBuffIcon(child, childData, options)
 
 	local forceShow = SCM.simulateBuffs or (not SCM.isHideWhenInactiveEnabled and childData.alwaysShow)
 	local shouldHide = isInactive and not forceShow
-	
+
 	if shouldHide then
 		Icons.SetChildVisibilityState(child, false, true)
 		return
@@ -373,11 +373,7 @@ local function ProcessSingleChild(child, validChildren, categoryIndex, isBuffIco
 	end
 
 	if not InCombatLockdown() then
-		if childData.hideWhileMounted then
-			RegisterAttributeDriver(child, "state-visibility", "[combat]show;[mounted][stance:3]hide;show")
-		else
-			UnregisterAttributeDriver(child, "state-visibility")
-		end
+		RegisterAttributeDriver(child, "state-visibility", SCM:GetVisibilityConditions(SCM.db.profile.options))
 	end
 end
 

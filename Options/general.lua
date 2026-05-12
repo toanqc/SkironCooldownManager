@@ -200,107 +200,109 @@ local function SelectGlobalSettingsTab(tabWidget, group, options)
 		end)
 		skinningSettings:AddChild(showAnchorHighlight)
 
+		local visibilitySettings = AceGUI:Create("InlineGroup")
+		visibilitySettings:SetLayout("flow")
+		visibilitySettings:SetFullWidth(true)
+		visibilitySettings:SetTitle("Visibility")
+		tabWidget:AddChild(visibilitySettings)
+
 		local hideWhileMounted = AceGUI:Create("CheckBox")
-		hideWhileMounted:SetRelativeWidth(0.5)
+		hideWhileMounted:SetRelativeWidth(0.33)
 		hideWhileMounted:SetLabel("Hide While Mounted")
 		hideWhileMounted:SetValue(options.hideWhileMounted)
 		hideWhileMounted:SetCallback("OnValueChanged", function(_, _, value)
 			options.hideWhileMounted = value
 
-			SCM:ApplyHideWhileMountedSettings(value)
+			SCM:ApplyAttributeDriver(value)
 			SCM:CreateAllCustomIcons()
 		end)
-		skinningSettings:AddChild(hideWhileMounted)
+		visibilitySettings:AddChild(hideWhileMounted)
 
-		local iconSettings = AceGUI:Create("InlineGroup")
-		iconSettings:SetLayout("flow")
-		iconSettings:SetFullWidth(true)
-		iconSettings:SetTitle("Icon")
-		tabWidget:AddChild(iconSettings)
+		local hideWhileDead = AceGUI:Create("CheckBox")
+		hideWhileDead:SetRelativeWidth(0.33)
+		hideWhileDead:SetLabel("Hide While Dead")
+		hideWhileDead:SetValue(options.hideWhileDead)
+		hideWhileDead:SetCallback("OnValueChanged", function(_, _, value)
+			options.hideWhileDead = value
 
-		local iconZoom = AceGUI:Create("Slider")
-		iconZoom:SetRelativeWidth(0.33)
-		iconZoom:SetValue(options.iconZoom or 1)
-		iconZoom:SetLabel("Zoom")
-		iconZoom:SetSliderValues(0.01, 0.4, 0.01)
-		iconZoom:SetIsPercent(true)
-		iconZoom:SetCallback("OnValueChanged", function(self, event, value)
-			options.iconZoom = value
-			SCM:ApplyAllCDManagerConfigs()
+			SCM:ApplyAttributeDriver()
+			SCM:CreateAllCustomIcons()
 		end)
-		iconSettings:AddChild(iconZoom)
+		visibilitySettings:AddChild(hideWhileDead)
 
-		local borderSettings = AceGUI:Create("InlineGroup")
-		borderSettings:SetLayout("flow")
-		borderSettings:SetFullWidth(true)
-		borderSettings:SetTitle("Border")
-		tabWidget:AddChild(borderSettings)
+		local hideWhileInVehicle = AceGUI:Create("CheckBox")
+		hideWhileInVehicle:SetRelativeWidth(0.33)
+		hideWhileInVehicle:SetLabel("Hide While In Vehicle")
+		hideWhileInVehicle:SetValue(options.hideWhileInVehicle)
+		hideWhileInVehicle:SetCallback("OnValueChanged", function(_, _, value)
+			options.hideWhileInVehicle = value
 
-		local borderSize = AceGUI:Create("Slider")
-		borderSize:SetRelativeWidth(0.5)
-		borderSize:SetLabel("Border Size")
-		borderSize:SetSliderValues(0, 5, 0.1)
-		borderSize:SetValue(options.borderSize or 1)
-		borderSize:SetCallback("OnValueChanged", function(_, _, value)
-			options.borderSize = value
-			SCM:CreateCastBar()
-			SCM:UpdateCastBar()
-			SCM:ApplyAllCDManagerConfigs()
+			SCM:ApplyAttributeDriver()
+			SCM:CreateAllCustomIcons()
 		end)
-		borderSettings:AddChild(borderSize)
+		visibilitySettings:AddChild(hideWhileInVehicle)
 
-		local borderColor = AceGUI:Create("ColorPicker")
-		borderColor:SetRelativeWidth(0.5)
-		borderColor:SetLabel("Border Color")
-		borderColor:SetHasAlpha(true)
+		local hideWhileResting = AceGUI:Create("CheckBox")
+		hideWhileResting:SetRelativeWidth(0.33)
+		hideWhileResting:SetLabel("Hide While Resting")
+		hideWhileResting:SetValue(options.hideWhileResting)
+		hideWhileResting:SetCallback("OnValueChanged", function(_, _, value)
+			options.hideWhileResting = value
 
-		local color = options.borderColor or { r = 0, g = 0, b = 0, a = 1 }
-		borderColor:SetColor(color.r, color.g, color.b, color.a)
-		borderColor:SetCallback("OnValueChanged", function(self, event, r, g, b, a)
-			options.borderColor = { r = r, g = g, b = b, a = a }
-			SCM:ApplyAllCDManagerConfigs()
+			SCM:ApplyAttributeDriver()
+			SCM:CreateAllCustomIcons()
 		end)
-		borderSettings:AddChild(borderColor)
+		visibilitySettings:AddChild(hideWhileResting)
 
-		local chargeSettings = AceGUI:Create("InlineGroup")
-		chargeSettings:SetLayout("flow")
-		chargeSettings:SetFullWidth(true)
-		chargeSettings:SetTitle("Charge/Application")
-		tabWidget:AddChild(chargeSettings)
+		local hideOutOfCombat = AceGUI:Create("CheckBox")
+		hideOutOfCombat:SetRelativeWidth(0.33)
+		hideOutOfCombat:SetLabel("Hide Outside Of Combat")
+		hideOutOfCombat:SetValue(options.hideOutOfCombat)
+		hideOutOfCombat:SetCallback("OnValueChanged", function(_, _, value)
+			options.hideOutOfCombat = value
 
-		local chargeFont = AceGUI:Create("LSM30_Font")
-		chargeFont:SetLabel("Font")
-		chargeFont:SetRelativeWidth(0.33)
-		chargeFont:SetList(LSM:HashTable("font"))
-		chargeFont:SetValue(options.chargeFont)
-		chargeFont:SetCallback("OnValueChanged", function(self, event, value)
-			if value ~= options.chargeFont then
-				options.chargeFont = value
-				self:SetValue(value)
-				SCM:ApplyAllCDManagerConfigs()
-			end
+			SCM:ApplyAttributeDriver()
+			SCM:CreateAllCustomIcons()
 		end)
-		chargeSettings:AddChild(chargeFont)
+		visibilitySettings:AddChild(hideOutOfCombat)
 
-		local chargeFontSize = AceGUI:Create("Slider")
-		chargeFontSize:SetRelativeWidth(0.33)
-		chargeFontSize:SetLabel("Font Size")
-		chargeFontSize:SetSliderValues(1, 50, 1)
-		chargeFontSize:SetValue(options.chargeFontSize)
-		chargeFontSize:SetCallback("OnValueChanged", function(self, event, value)
-			options.chargeFontSize = value
-			SCM:ApplyAllCDManagerConfigs()
+		local customVisibilitySettings = AceGUI:Create("InlineGroup")
+		customVisibilitySettings:SetLayout("flow")
+		customVisibilitySettings:SetFullWidth(true)
+		customVisibilitySettings:SetTitle("Custom")
+		visibilitySettings:AddChild(customVisibilitySettings)
+
+		local useCustomVisibilityCondition = AceGUI:Create("CheckBox")
+		useCustomVisibilityCondition:SetRelativeWidth(0.5)
+		useCustomVisibilityCondition:SetLabel("Use Custom Condition")
+		useCustomVisibilityCondition:SetValue(options.useCustomVisibilityCondition)
+
+		customVisibilitySettings:AddChild(useCustomVisibilityCondition)
+
+		local customVisibilityCondition = AceGUI:Create("EditBox")
+		customVisibilityCondition:SetRelativeWidth(0.5)
+		customVisibilityCondition:SetLabel("Condition")
+		customVisibilityCondition:SetText(options.customVisibilityCondition)
+		customVisibilityCondition:SetDisabled(not options.useCustomVisibilityCondition)
+		customVisibilityCondition:SetCallback("OnEnterPressed", function(_, _, value)
+			options.customVisibilityCondition = value
+
+			SCM:ApplyAttributeDriver()
+			SCM:CreateAllCustomIcons()
 		end)
-		chargeSettings:AddChild(chargeFontSize)
+		customVisibilitySettings:AddChild(customVisibilityCondition)
 
-		local chargeRelativePoint = AceGUI:Create("Dropdown")
-		chargeRelativePoint:SetRelativeWidth(0.33)
-		chargeRelativePoint:SetLabel("Point")
-		chargeRelativePoint:SetList(SCM.Constants.AnchorPoints)
-		chargeRelativePoint:SetValue(options.chargePoint)
-		chargeRelativePoint:SetCallback("OnValueChanged", function(_, _, value)
-			options.chargePoint = value
-			SCM:ApplyAllCDManagerConfigs()
+		useCustomVisibilityCondition:SetCallback("OnValueChanged", function(_, _, value)
+			options.useCustomVisibilityCondition = value
+
+			customVisibilityCondition:SetDisabled(not value)
+			hideWhileMounted:SetDisabled(value)
+			hideWhileDead:SetDisabled(value)
+			hideWhileInVehicle:SetDisabled(value)
+			hideWhileResting:SetDisabled(value)
+			hideOutOfCombat:SetDisabled(value)
+			SCM:ApplyAttributeDriver()
+			SCM:CreateAllCustomIcons()
 		end)
 		chargeSettings:AddChild(chargeRelativePoint)
 
@@ -534,6 +536,235 @@ local function SelectGlobalSettingsTab(tabWidget, group, options)
 			options.disableRegularIconActiveSwipe = value
 		end)
 		activeSwipeSettings:AddChild(disableRegularIconActiveSwipe)
+	elseif group == "Icons" then
+		local iconSettings = AceGUI:Create("InlineGroup")
+		iconSettings:SetLayout("flow")
+		iconSettings:SetFullWidth(true)
+		iconSettings:SetTitle("Icon")
+		tabWidget:AddChild(iconSettings)
+
+		local iconZoom = AceGUI:Create("Slider")
+		iconZoom:SetRelativeWidth(0.5)
+		iconZoom:SetValue(options.iconZoom or 1)
+		iconZoom:SetLabel("Zoom")
+		iconZoom:SetSliderValues(0.01, 0.4, 0.01)
+		iconZoom:SetIsPercent(true)
+		iconZoom:SetCallback("OnValueChanged", function(self, event, value)
+			options.iconZoom = value
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		iconSettings:AddChild(iconZoom)
+
+		local iconFrameStrata = AceGUI:Create("Dropdown")
+		iconFrameStrata:SetRelativeWidth(0.5)
+		iconFrameStrata:SetLabel("Frame Strata")
+		iconFrameStrata:SetList(SCM.Constants.FrameStrata, SCM.Constants.FrameStrataSorted)
+		iconFrameStrata:SetValue(options.iconFrameStrata or "")
+		iconFrameStrata:SetCallback("OnValueChanged", function(_, _, value)
+			options.iconFrameStrata = value
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		iconSettings:AddChild(iconFrameStrata)
+
+		local borderSize = AceGUI:Create("Slider")
+		borderSize:SetRelativeWidth(0.5)
+		borderSize:SetLabel("Border Size")
+		borderSize:SetSliderValues(0, 5, 0.1)
+		borderSize:SetValue(options.borderSize or 1)
+		borderSize:SetCallback("OnValueChanged", function(_, _, value)
+			options.borderSize = value
+			SCM:CreateCastBar()
+			SCM:UpdateCastBar()
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		iconSettings:AddChild(borderSize)
+
+		local borderColor = AceGUI:Create("ColorPicker")
+		borderColor:SetRelativeWidth(0.5)
+		borderColor:SetLabel("Border Color")
+		borderColor:SetHasAlpha(true)
+
+		local color = options.borderColor or { r = 0, g = 0, b = 0, a = 1 }
+		borderColor:SetColor(color.r, color.g, color.b, color.a)
+		borderColor:SetCallback("OnValueChanged", function(self, event, r, g, b, a)
+			options.borderColor = { r = r, g = g, b = b, a = a }
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		iconSettings:AddChild(borderColor)
+
+		local chargeSettings = AceGUI:Create("InlineGroup")
+		chargeSettings:SetLayout("flow")
+		chargeSettings:SetFullWidth(true)
+		chargeSettings:SetTitle("Charge/Application")
+		tabWidget:AddChild(chargeSettings)
+
+		local chargeFont = AceGUI:Create("LSM30_Font")
+		chargeFont:SetLabel("Font")
+		chargeFont:SetRelativeWidth(0.33)
+		chargeFont:SetList(LSM:HashTable("font"))
+		chargeFont:SetValue(options.chargeFont)
+		chargeFont:SetCallback("OnValueChanged", function(self, event, value)
+			if value ~= options.chargeFont then
+				options.chargeFont = value
+				self:SetValue(value)
+				SCM:ApplyAllCDManagerConfigs()
+			end
+		end)
+		chargeSettings:AddChild(chargeFont)
+
+		local chargeFontSize = AceGUI:Create("Slider")
+		chargeFontSize:SetRelativeWidth(0.33)
+		chargeFontSize:SetLabel("Font Size")
+		chargeFontSize:SetSliderValues(1, 50, 1)
+		chargeFontSize:SetValue(options.chargeFontSize)
+		chargeFontSize:SetCallback("OnValueChanged", function(self, event, value)
+			options.chargeFontSize = value
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		chargeSettings:AddChild(chargeFontSize)
+
+		local chargeFontOutline = AceGUI:Create("Dropdown")
+		chargeFontOutline:SetRelativeWidth(0.33)
+		chargeFontOutline:SetLabel("Outline")
+		chargeFontOutline:SetList(SCM.Constants.TextOutline, SCM.Constants.TextOutlineSorted)
+		chargeFontOutline:SetValue(options.chargeFontOutline or "OUTLINE")
+		chargeFontOutline:SetCallback("OnValueChanged", function(_, _, value)
+			options.chargeFontOutline = value
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		chargeSettings:AddChild(chargeFontOutline)
+
+		local chargeRelativePoint = AceGUI:Create("Dropdown")
+		chargeRelativePoint:SetRelativeWidth(0.25)
+		chargeRelativePoint:SetLabel("Point")
+		chargeRelativePoint:SetList(SCM.Constants.AnchorPoints)
+		chargeRelativePoint:SetValue(options.chargePoint)
+		chargeRelativePoint:SetCallback("OnValueChanged", function(_, _, value)
+			options.chargePoint = value
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		chargeSettings:AddChild(chargeRelativePoint)
+
+		local chargeRelativePoint = AceGUI:Create("Dropdown")
+		chargeRelativePoint:SetRelativeWidth(0.25)
+		chargeRelativePoint:SetLabel("Relative Point")
+		chargeRelativePoint:SetList(SCM.Constants.AnchorPoints)
+		chargeRelativePoint:SetValue(options.chargeRelativePoint)
+		chargeRelativePoint:SetCallback("OnValueChanged", function(_, _, value)
+			options.chargeRelativePoint = value
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		chargeSettings:AddChild(chargeRelativePoint)
+
+		local xOffset = AceGUI:Create("Slider")
+		xOffset:SetRelativeWidth(0.25)
+		xOffset:SetSliderValues(-50, 50, 0.1)
+		xOffset:SetLabel("X Offset")
+		xOffset:SetValue(options.chargeXOffset)
+		xOffset:SetCallback("OnValueChanged", function(self, event, value)
+			options.chargeXOffset = value
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		chargeSettings:AddChild(xOffset)
+
+		local yOffset = AceGUI:Create("Slider")
+		yOffset:SetRelativeWidth(0.25)
+		yOffset:SetSliderValues(-50, 50, 0.1)
+		yOffset:SetLabel("Y Offset")
+		yOffset:SetValue(options.chargeYOffset)
+		yOffset:SetCallback("OnValueChanged", function(self, event, value)
+			options.chargeYOffset = value
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		chargeSettings:AddChild(yOffset)
+
+		local cooldownTextSettings = AceGUI:Create("InlineGroup")
+		cooldownTextSettings:SetLayout("flow")
+		cooldownTextSettings:SetFullWidth(true)
+		cooldownTextSettings:SetTitle("Cooldown Text")
+		tabWidget:AddChild(cooldownTextSettings)
+
+		local enableCooldownFont = AceGUI:Create("CheckBox")
+		enableCooldownFont:SetRelativeWidth(1)
+		enableCooldownFont:SetLabel("Custom Cooldown Font")
+		enableCooldownFont:SetValue(options.changeCooldownFont)
+		enableCooldownFont:SetCallback("OnValueChanged", function(_, _, value)
+			options.changeCooldownFont = value
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		cooldownTextSettings:AddChild(enableCooldownFont)
+
+		local cooldownFont = AceGUI:Create("LSM30_Font")
+		cooldownFont:SetLabel("Font")
+		cooldownFont:SetRelativeWidth(0.33)
+		cooldownFont:SetList(LSM:HashTable("font"))
+		cooldownFont:SetValue(options.cooldownFont)
+		cooldownFont:SetCallback("OnValueChanged", function(self, event, value)
+			options.cooldownFont = value
+			self:SetValue(value)
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		cooldownTextSettings:AddChild(cooldownFont)
+
+		local cooldownFontSize = AceGUI:Create("Slider")
+		local cooldownFontSizeValue = options.cooldownFontSize or 0.6
+		if cooldownFontSizeValue > 1 then
+			cooldownFontSizeValue = cooldownFontSizeValue / 40
+			options.cooldownFontSize = cooldownFontSizeValue
+		end
+
+		cooldownFontSize:SetRelativeWidth(0.33)
+		cooldownFontSize:SetLabel("Font Size")
+		cooldownFontSize:SetSliderValues(0.1, 1, 0.01)
+		cooldownFontSize:SetIsPercent(true)
+		cooldownFontSize:SetValue(cooldownFontSizeValue)
+		cooldownFontSize:SetCallback("OnValueChanged", function(self, event, value)
+			options.cooldownFontSize = value
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		cooldownTextSettings:AddChild(cooldownFontSize)
+
+		local cooldownFontOutline = AceGUI:Create("Dropdown")
+		cooldownFontOutline:SetRelativeWidth(0.33)
+		cooldownFontOutline:SetLabel("Outline")
+		cooldownFontOutline:SetList(SCM.Constants.TextOutline, SCM.Constants.TextOutlineSorted)
+		cooldownFontOutline:SetValue(options.cooldownFontOutline or "OUTLINE")
+		cooldownFontOutline:SetCallback("OnValueChanged", function(_, _, value)
+			options.cooldownFontOutline = value
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		cooldownTextSettings:AddChild(cooldownFontOutline)
+
+		local cooldownFontColor = AceGUI:Create("ColorPicker")
+		cooldownFontColor:SetRelativeWidth(0.33)
+		cooldownFontColor:SetLabel("Font Color")
+		cooldownFontColor:SetHasAlpha(true)
+		cooldownFontColor:SetColor(options.cooldownFontColor.r, options.cooldownFontColor.g, options.cooldownFontColor.b, options.cooldownFontColor.a)
+		cooldownFontColor:SetCallback("OnValueChanged", function(_, _, r, g, b, a)
+			options.cooldownFontColor = { r = r, g = g, b = b, a = a }
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		cooldownTextSettings:AddChild(cooldownFontColor)
+
+		local cooldownXOffset = AceGUI:Create("Slider")
+		cooldownXOffset:SetRelativeWidth(0.33)
+		cooldownXOffset:SetValue(options.cooldownXOffset)
+		cooldownXOffset:SetLabel("X Offset")
+		cooldownXOffset:SetSliderValues(-30, 30, 0.1)
+		cooldownXOffset:SetCallback("OnValueChanged", function(_, _, value)
+			options.cooldownXOffset = value
+		end)
+		cooldownTextSettings:AddChild(cooldownXOffset)
+
+		local cooldownYOffset = AceGUI:Create("Slider")
+		cooldownYOffset:SetRelativeWidth(0.33)
+		cooldownYOffset:SetValue(options.cooldownYOffset)
+		cooldownYOffset:SetLabel("Y Offset")
+		cooldownYOffset:SetSliderValues(-30, 30, 0.1)
+		cooldownYOffset:SetCallback("OnValueChanged", function(_, _, value)
+			options.cooldownYOffset = value
+		end)
+		cooldownTextSettings:AddChild(cooldownYOffset)
 	elseif group == "Glow" then
 		local glowSettings = AceGUI:Create("InlineGroup")
 		glowSettings:SetLayout("flow")
@@ -795,7 +1026,7 @@ local function SelectGlobalSettingsTab(tabWidget, group, options)
 
 		local font = AceGUI:Create("LSM30_Font")
 		font:SetLabel("Font")
-		font:SetRelativeWidth(0.5)
+		font:SetRelativeWidth(0.33)
 		font:SetList(LSM:HashTable("font"))
 		font:SetValue(buffBarOptions.font)
 		font:SetCallback("OnValueChanged", function(self, event, value)
@@ -806,7 +1037,7 @@ local function SelectGlobalSettingsTab(tabWidget, group, options)
 		fontSettings:AddChild(font)
 
 		local fontSize = AceGUI:Create("Slider")
-		fontSize:SetRelativeWidth(0.5)
+		fontSize:SetRelativeWidth(0.33)
 		fontSize:SetLabel("Font Size")
 		fontSize:SetSliderValues(1, 50, 1)
 		fontSize:SetValue(buffBarOptions.fontSize)
@@ -815,6 +1046,17 @@ local function SelectGlobalSettingsTab(tabWidget, group, options)
 			SCM:SkinBuffBars()
 		end)
 		fontSettings:AddChild(fontSize)
+
+		local fontOutline = AceGUI:Create("Dropdown")
+		fontOutline:SetRelativeWidth(0.33)
+		fontOutline:SetLabel("Outline")
+		fontOutline:SetList(SCM.Constants.TextOutline, SCM.Constants.TextOutlineSorted)
+		fontOutline:SetValue(buffBarOptions.fontOutline or "OUTLINE")
+		fontOutline:SetCallback("OnValueChanged", function(_, _, value)
+			buffBarOptions.fontOutline = value
+			SCM:SkinBuffBars()
+		end)
+		fontSettings:AddChild(fontOutline)
 	end
 end
 
