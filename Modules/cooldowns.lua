@@ -20,10 +20,8 @@ local function OnBuffCooldownSet(self)
 		return
 	end
 
-	if parent.SCMAuraInstanceID and parent.auraInstanceID and parent.auraInstanceID ~= parent.SCMAuraInstanceID then
+	if parent.auraInstanceID and (not parent.SCMAuraInstanceID or parent.auraInstanceID ~= parent.SCMAuraInstanceID) then
 		parent.SCMAuraInstanceID = parent.auraInstanceID
-	else
-		parent.SCMAuraInstanceID = parent.SCMAuraInstanceID or parent.auraInstanceID
 	end
 
 	if not parent.SCMHidden or parent.SCMConfig.alwaysShow then
