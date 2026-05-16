@@ -15,6 +15,7 @@ local pendingOverrideRebuild = false
 local combatDirty = false
 local inOverrideBar = false
 local styleVersion = 0  -- bumped when display settings change; skips redundant SetFont/SetTextColor
+local extraHooksSet = false  -- deferred hooks for modules that load after this file
 
 -- ── Key abbreviation ─────────────────────────────────────────────────────────
 
@@ -605,6 +606,15 @@ end
 local eventFrame = CreateFrame("Frame")
 eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
     if event == "PLAYER_ENTERING_WORLD" then
+        if not extraHooksSet then
+            extraHooksSet = true
+            -- update.lua loads after this file, so defer these hooks until runtime.
+            -- ApplyAllCDManagerConfigs: settings panel refresh, equipment change, combat state change.
+            -- Apply*CDManagerConfig: native viewer layout changes (spell added to Essential/Utility).
+            hooksecurefunc(SCM, "ApplyAllCDManagerConfigs", Keybinds.RefreshAllFrames)
+            hooksecurefunc(SCM, "ApplyEssentialCDManagerConfig", Keybinds.RefreshAllFrames)
+            hooksecurefunc(SCM, "ApplyUtilityCDManagerConfig", Keybinds.RefreshAllFrames)
+        end
         if arg1 or arg2 then -- isInitialLogin or isReload
             Keybinds.OnSettingChanged()
         end
@@ -694,10 +704,16 @@ end
 -- SCM.RefreshCooldownViewerData is set on the table in core.lua before this file loads.
 hooksecurefunc(SCM, "RefreshCooldownViewerData", Keybinds.RefreshAllFrames)
 
--- Re-apply keybinds when a new custom icon is added. AddCustomIcon creates frames
--- but never goes through RefreshCooldownViewerData, so keybinds wouldn't appear
--- on the new icon until the next unrelated rebuild.
+-- Force a bar rescan when a custom icon is added — AddCustomIcon never goes through
+-- RefreshCooldownViewerData, so the icon's spell might not be in keyMap yet.
 hooksecurefunc(SCM, "AddCustomIcon", Keybinds.Rebuild)
+
+-- Async data-load paths: spell/item data may not be cached when AddCustomIcon runs,
+-- so the frame is created later by CreateSpellIcon/CreateItemIcon. Apply keybinds
+-- once the frame actually exists. customicons.lua loads before this file, so these
+-- hooks can be registered at bootstrap time.
+hooksecurefunc(SCM.CustomIcons, "CreateSpellIcon", Keybinds.RefreshAllFrames)
+hooksecurefunc(SCM.CustomIcons, "CreateItemIcon", Keybinds.RefreshAllFrames)
 
 -- PLAYER_ENTERING_WORLD is registered here so it survives Disable() which calls
 -- UnregisterAllEvents(). Enable() also re-registers it to keep the set consistent.
