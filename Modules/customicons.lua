@@ -189,8 +189,12 @@ local function SetCustomIconCountText(frame, iconType, config)
 	local itemID = frame.SCMItemID
 
 	local count = C_Item.GetItemCount(itemID, false, true)
-	frame.ChargeCount.Current:SetText(count)
-	frame.ChargeCount.Current:Show()
+	if not config.hideStackText then
+		frame.ChargeCount.Current:SetText(count)
+		frame.ChargeCount.Current:Show()
+	else
+		frame.ChargeCount.Current:SetText("")
+	end
 
 	if count <= 0 then
 		frame.Icon:SetVertexColor(0.4, 0.4, 0.4)
@@ -366,7 +370,7 @@ local function UpdateCustomIconCooldown(frame, iconType, config)
 				UpdateCustomIconGCD(frame, config, true)
 				UpdateCustomIconGlow(frame, false)
 			end
-			
+
 			return true
 		elseif duration == 0 and frame.isOnCooldown then
 			frame.isOnCooldown = false

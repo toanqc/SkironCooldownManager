@@ -1362,6 +1362,16 @@ local function SelectAnchor(widget, parentWidget, anchorIndex, anchorTabsTbl, mo
 												ApplyIconConfigUpdate()
 											end)
 											iconSettingsTabs:AddChild(showCraftQuality)
+
+											local hideStackText = AceGUI:Create("CheckBox")
+											hideStackText:SetLabel("Hide Count")
+											hideStackText:SetRelativeWidth(0.5)
+											hideStackText:SetValue(buttonConfig.hideStackText)
+											hideStackText:SetCallback("OnValueChanged", function(self, event, value)
+												buttonConfig.hideStackText = value or nil
+												ApplyIconConfigUpdate()
+											end)
+											iconSettingsTabs:AddChild(hideStackText)
 										elseif buttonData.iconType == "spell" then
 											local showNotUsable = AceGUI:Create("CheckBox")
 											showNotUsable:SetLabel("Show Not Usable")
