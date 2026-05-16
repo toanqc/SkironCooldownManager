@@ -329,6 +329,10 @@ local function GetCurrentPowerValue(resourceKind, powerType, spellID, segmentCou
 end
 
 local function UpdateStaggerBarColor(bar, currentValue, maxValue, resourceBarOptions)
+	if issecretvalue(currentValue) or issecretvalue(maxValue) then
+		return
+	end
+
 	local staggerPercent = maxValue > 0 and currentValue / maxValue or 0
 	local staggerColors = resourceBarOptions.staggerColors
 	local color = staggerColors.light
