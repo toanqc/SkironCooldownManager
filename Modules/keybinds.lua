@@ -13,6 +13,8 @@ local keyMap = nil
 local pendingRebuild = false
 local pendingOverrideRebuild = false
 local combatDirty = false
+local inOverrideBar = false
+local styleVersion = 0  -- bumped when display settings change; skips redundant SetFont/SetTextColor
 
 -- ── Key abbreviation ─────────────────────────────────────────────────────────
 
@@ -335,10 +337,6 @@ end
 -- ── Map construction ──────────────────────────────────────────────────────────
 
 local function BuildKeyMap()
-    if InCombatLockdown and InCombatLockdown() then
-        return { spells = {}, spellNames = {}, items = {}, itemNames = {} }
-    end
-
     local map = { spells = {}, spellNames = {}, items = {}, itemNames = {} }
     local macros = {}
     local seenSlots = {}
@@ -448,6 +446,8 @@ local function GetKeybindCfg()
 end
 
 local function ApplyStyle(overlay, cfg)
+    if overlay._scmStyleVersion == styleVersion then return end
+    overlay._scmStyleVersion = styleVersion
     local text = overlay.text
     local fontPath = DEFAULT_FONT
     if LSM then
@@ -595,6 +595,7 @@ function Keybinds.Rebuild()
         combatDirty = true
         return
     end
+    if inOverrideBar then return end
     keyMap = BuildKeyMap()
     Keybinds.RefreshAllFrames()
 end
@@ -618,25 +619,27 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
         return
     end
 
+    if event == "UPDATE_OVERRIDE_ACTIONBAR" then
+        inOverrideBar = true
+        if not pendingOverrideRebuild then
+            pendingOverrideRebuild = true
+            C_Timer.After(0.5, function()
+                pendingOverrideRebuild = false
+                local stillInOverride = (IsMounted and IsMounted()) or (UnitInVehicle and UnitInVehicle("player"))
+                inOverrideBar = stillInOverride
+                if not stillInOverride then Keybinds.Rebuild() end
+            end)
+        end
+        return
+    end
+
+    if inOverrideBar then return end
+
     local cfg = GetKeybindCfg()
     if not cfg or not cfg.enabled then return end
 
     if InCombatLockdown and InCombatLockdown() then
         combatDirty = true
-        return
-    end
-
-    -- Give override-bar changes their own independent timer with a longer delay.
-    -- This prevents the dismount rebuild from being silently dropped when a
-    -- pendingRebuild (e.g. from ACTIONBAR_SLOT_CHANGED while mounted) is still running.
-    if event == "UPDATE_OVERRIDE_ACTIONBAR" then
-        if not pendingOverrideRebuild then
-            pendingOverrideRebuild = true
-            C_Timer.After(0.5, function()
-                pendingOverrideRebuild = false
-                Keybinds.Rebuild()
-            end)
-        end
         return
     end
 
@@ -651,11 +654,12 @@ end)
 -- ── Lifecycle ────────────────────────────────────────────────────────────────
 
 function Keybinds.Enable()
+    inOverrideBar = false
     eventFrame:RegisterEvent("UPDATE_BINDINGS")
     eventFrame:RegisterEvent("UPDATE_MACROS")
-    eventFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
-    eventFrame:RegisterEvent("ACTIONBAR_PAGE_CHANGED") -- Covers paging changes example druid forms
-    eventFrame:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR") -- Covers Dragon Riding mount/dismount
+    eventFrame:RegisterEvent("ACTIONBAR_HIDEGRID")
+    eventFrame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
+    eventFrame:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR")
     eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
     eventFrame:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED")
     eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
@@ -669,11 +673,13 @@ function Keybinds.Disable()
     keyMap = nil
     combatDirty = false
     pendingRebuild = false
+    inOverrideBar = false
     pendingOverrideRebuild = false
     Keybinds.RefreshAllFrames()
 end
 
 function Keybinds.OnSettingChanged()
+    styleVersion = styleVersion + 1
     local cfg = GetKeybindCfg()
     if cfg and cfg.enabled then
         Keybinds.Enable()
@@ -687,6 +693,11 @@ end
 -- Re-apply keybinds after any full viewer rebuild (profile/spec/scale changes).
 -- SCM.RefreshCooldownViewerData is set on the table in core.lua before this file loads.
 hooksecurefunc(SCM, "RefreshCooldownViewerData", Keybinds.RefreshAllFrames)
+
+-- Re-apply keybinds when a new custom icon is added. AddCustomIcon creates frames
+-- but never goes through RefreshCooldownViewerData, so keybinds wouldn't appear
+-- on the new icon until the next unrelated rebuild.
+hooksecurefunc(SCM, "AddCustomIcon", Keybinds.Rebuild)
 
 -- PLAYER_ENTERING_WORLD is registered here so it survives Disable() which calls
 -- UnregisterAllEvents(). Enable() also re-registers it to keep the set consistent.
