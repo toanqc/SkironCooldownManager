@@ -10,12 +10,21 @@ local DEFAULT_FONT = "Interface\\AddOns\\SkironCooldownManager\\Media\\fonts\\Ex
 -- ── State ────────────────────────────────────────────────────────────────────
 
 local keyMap = nil
+-- Persistent keybind cache: survives bar changes (druid forms, dragonriding, vehicles).
+-- Cleared only when the player makes an intentional change: dragging spells (ACTIONBAR_HIDEGRID),
+-- changing keybinds (UPDATE_BINDINGS), or switching spec (ACTIVE_PLAYER_SPECIALIZATION_CHANGED).
+local keyCache = { spells = {}, items = {}, spellNames = {}, itemNames = {} }
 local pendingRebuild = false
-local pendingOverrideRebuild = false
 local combatDirty = false
-local inOverrideBar = false
 local styleVersion = 0  -- bumped when display settings change; skips redundant SetFont/SetTextColor
 local extraHooksSet = false  -- deferred hooks for modules that load after this file
+
+local function ClearKeyCache()
+    wipe(keyCache.spells)
+    wipe(keyCache.items)
+    wipe(keyCache.spellNames)
+    wipe(keyCache.itemNames)
+end
 
 -- ── Key abbreviation ─────────────────────────────────────────────────────────
 
@@ -350,8 +359,10 @@ local function BuildKeyMap()
                 local aType, id = GetActionInfo(slot)
                 if aType == "spell" then
                     StoreSpell(map, id, fmt)
+                    StoreSpell(keyCache, id, fmt)
                 elseif aType == "item" then
                     StoreItem(map, id, fmt)
+                    StoreItem(keyCache, id, fmt)
                 elseif aType == "macro" then
                     macros[#macros + 1] = { slot = slot, id = id, fmt = fmt }
                 end
@@ -383,6 +394,7 @@ local function BuildKeyMap()
                 local spellID = ResolveMacroSpellID(macroIdx, body)
                 if spellID then
                     StoreSpell(map, spellID, m.fmt, true)
+                    StoreSpell(keyCache, spellID, m.fmt, true)
                 end
 
                 local hasSlash = body:lower():find("/cast", 1, true) or body:lower():find("/castsequence", 1, true)
@@ -394,21 +406,29 @@ local function BuildKeyMap()
                             -- Plain number: slot IDs 13/14 are trinket slots, anything above is a direct item ID
                             if (n == 13 or n == 14) and not hasSlash then
                                 local equipped = GetInventoryItemID and GetInventoryItemID("player", n)
-                                if equipped then StoreItem(map, equipped, m.fmt, true) end
+                                if equipped then
+                                    StoreItem(map, equipped, m.fmt, true)
+                                    StoreItem(keyCache, equipped, m.fmt, true)
+                                end
                             elseif n > 14 then
                                 StoreItem(map, n, m.fmt, true)
+                                StoreItem(keyCache, n, m.fmt, true)
                             end
                         else
                             -- "item:ITEMID" or full item string "item:ITEMID:bonus:..." (/use item:245898)
                             local rawID = tok:match("^[Ii]tem:(%d+)")
                             if rawID then
                                 StoreItem(map, tonumber(rawID), m.fmt, true)
+                                StoreItem(keyCache, tonumber(rawID), m.fmt, true)
                             elseif GetItemInfo then
                                 -- Item name token (/use Light's Potential) — resolve via cache
                                 local _, link = GetItemInfo(tok)
                                 if link then
                                     local id = link:match("item:(%d+)")
-                                    if id then StoreItem(map, tonumber(id), m.fmt, true) end
+                                    if id then
+                                        StoreItem(map, tonumber(id), m.fmt, true)
+                                        StoreItem(keyCache, tonumber(id), m.fmt, true)
+                                    end
                                 end
                             end
                         end
@@ -416,6 +436,22 @@ local function BuildKeyMap()
                 end
             end
         end
+    end
+
+    -- Merge cache into map: provides keybinds for spells not on the current bar
+    -- (e.g. normal-form spells while in druid cat form, or normal bar while dragonriding).
+    -- Cache entries only won for spells absent from the current scan, so current bar always wins.
+    for spellID, key in pairs(keyCache.spells) do
+        if not map.spells[spellID] then map.spells[spellID] = key end
+    end
+    for name, key in pairs(keyCache.spellNames) do
+        if not map.spellNames[name] then map.spellNames[name] = key end
+    end
+    for itemID, key in pairs(keyCache.items) do
+        if not map.items[itemID] then map.items[itemID] = key end
+    end
+    for name, key in pairs(keyCache.itemNames) do
+        if not map.itemNames[name] then map.itemNames[name] = key end
     end
 
     return map
@@ -596,7 +632,6 @@ function Keybinds.Rebuild()
         combatDirty = true
         return
     end
-    if inOverrideBar then return end
     keyMap = BuildKeyMap()
     Keybinds.RefreshAllFrames()
 end
@@ -629,28 +664,23 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
         return
     end
 
-    if event == "UPDATE_OVERRIDE_ACTIONBAR" then
-        inOverrideBar = true
-        if not pendingOverrideRebuild then
-            pendingOverrideRebuild = true
-            C_Timer.After(0.5, function()
-                pendingOverrideRebuild = false
-                local stillInOverride = (IsMounted and IsMounted()) or (UnitInVehicle and UnitInVehicle("player"))
-                inOverrideBar = stillInOverride
-                if not stillInOverride then Keybinds.Rebuild() end
-            end)
-        end
-        return
-    end
-
-    if inOverrideBar then return end
-
     local cfg = GetKeybindCfg()
     if not cfg or not cfg.enabled then return end
 
     if InCombatLockdown and InCombatLockdown() then
         combatDirty = true
         return
+    end
+
+    -- Intentional bar changes: clear the cache so removed/moved spells lose their keybind.
+    -- Page changes (druid forms, dragonriding) are intentionally NOT listed here — the cache
+    -- preserves keybinds for spells that aren't on the active bar.
+    if event == "ACTIONBAR_HIDEGRID"
+       or event == "UPDATE_BINDINGS"
+       or event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED"
+       or event == "UPDATE_MACROS"
+       or event == "PLAYER_EQUIPMENT_CHANGED" then
+        ClearKeyCache()
     end
 
     if pendingRebuild then return end
@@ -664,12 +694,11 @@ end)
 -- ── Lifecycle ────────────────────────────────────────────────────────────────
 
 function Keybinds.Enable()
-    inOverrideBar = false
+    ClearKeyCache()
     eventFrame:RegisterEvent("UPDATE_BINDINGS")
     eventFrame:RegisterEvent("UPDATE_MACROS")
     eventFrame:RegisterEvent("ACTIONBAR_HIDEGRID")
     eventFrame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
-    eventFrame:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR")
     eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
     eventFrame:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED")
     eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
@@ -683,8 +712,6 @@ function Keybinds.Disable()
     keyMap = nil
     combatDirty = false
     pendingRebuild = false
-    inOverrideBar = false
-    pendingOverrideRebuild = false
     Keybinds.RefreshAllFrames()
 end
 
