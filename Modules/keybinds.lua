@@ -8,6 +8,7 @@ local DEFAULT_FONT = "Interface\\AddOns\\SkironCooldownManager\\Media\\fonts\\Ex
 
 -- ── State ─────────────────────────────────────────────────────────────────────
 
+local enabled    = false   -- false = module is off; all hook callbacks return immediately
 local keyMap     = nil
 -- Persistent cache: survives bonus/override bar changes (skyriding, druid forms, vehicles).
 -- Cleared on spec / equipment / macro changes, and on ACTIONBAR_HIDEGRID when off the override bar.
@@ -592,14 +593,15 @@ function Keybinds.HideFromFrame(frame)
 end
 
 function Keybinds.RefreshAllFrames()
+    if not enabled then return end
     local map     = keyMap
     local cfg     = GetKeybindCfg()
-    local enabled = cfg and cfg.enabled
+    local cfgEnabled = cfg and cfg.enabled
 
     if SCM.CustomIcons and SCM.CustomIcons.ForEachActiveFrame then
         SCM.CustomIcons.ForEachActiveFrame(function(frame)
             if not frame.SCMConfig then return end
-            if enabled and map then
+            if cfgEnabled and map then
                 ApplyToCustomFrame(frame, map, cfg)
             else
                 HideKeybind(frame)
@@ -612,7 +614,7 @@ function Keybinds.RefreshAllFrames()
         if viewer then
             for _, child in ipairs({ viewer:GetChildren() }) do
                 if child.SCMSpellID then
-                    if enabled and map then
+                    if cfgEnabled and map then
                         ApplyToViewerChild(child, map, cfg)
                     else
                         HideKeybind(child)
@@ -624,6 +626,7 @@ function Keybinds.RefreshAllFrames()
 end
 
 function Keybinds.Rebuild()
+    if not enabled then return end
     if InCombatLockdown and InCombatLockdown() then
         combatDirty = true
         return
@@ -712,6 +715,7 @@ end)
 -- ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 function Keybinds.Enable()
+    enabled = true
     if rebuildTimer then rebuildTimer:Cancel(); rebuildTimer = nil; rebuildDelay = 0 end
     ClearKeyCache()
     eventFrame:RegisterEvent("UPDATE_BINDINGS")
@@ -735,7 +739,20 @@ function Keybinds.Disable()
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     keyMap        = nil
     combatDirty   = false
-    Keybinds.RefreshAllFrames()
+    -- Clear overlays before flipping the flag so RefreshAllFrames' early-return doesn't skip the wipe.
+    local function hideAll(frame) HideKeybind(frame) end
+    if SCM.CustomIcons and SCM.CustomIcons.ForEachActiveFrame then
+        SCM.CustomIcons.ForEachActiveFrame(hideAll)
+    end
+    for _, viewerName in ipairs({ "EssentialCooldownViewer", "UtilityCooldownViewer" }) do
+        local viewer = _G[viewerName]
+        if viewer then
+            for _, child in ipairs({ viewer:GetChildren() }) do
+                if child.SCMSpellID then HideKeybind(child) end
+            end
+        end
+    end
+    enabled = false
 end
 
 function Keybinds.OnSettingChanged()
