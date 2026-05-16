@@ -4,20 +4,19 @@ local Keybinds = {}
 SCM.Keybinds = Keybinds
 
 local LSM = LibStub("LibSharedMedia-3.0", true)
-
 local DEFAULT_FONT = "Interface\\AddOns\\SkironCooldownManager\\Media\\fonts\\Expressway.ttf"
 
--- ── State ────────────────────────────────────────────────────────────────────
+-- ── State ─────────────────────────────────────────────────────────────────────
 
-local keyMap = nil
--- Persistent keybind cache: survives bar changes (druid forms, dragonriding, vehicles).
--- Cleared on intentional changes: drag (ACTIONBAR_HIDEGRID on ground), binding change, spec change.
-local keyCache = { spells = {}, items = {}, spellNames = {}, itemNames = {} }
-local pendingRebuild = false
-local combatDirty = false
-local pendingOverrideCheck = false
-local styleVersion = 0  -- bumped when display settings change; skips redundant SetFont/SetTextColor
-local extraHooksSet = false  -- deferred hooks for modules that load after this file
+local keyMap     = nil
+-- Persistent cache: survives bonus/override bar changes (skyriding, druid forms, vehicles).
+-- Cleared on spec / equipment / macro changes, and on ACTIONBAR_HIDEGRID when off the override bar.
+local keyCache   = { spells = {}, items = {}, spellNames = {}, itemNames = {} }
+local combatDirty   = false
+local rebuildTimer  = nil   -- C_Timer.NewTimer handle; replaced when a longer delay is needed
+local rebuildDelay  = 0     -- delay of the currently pending timer
+local styleVersion  = 0     -- bumped on display-settings change; skips redundant SetFont calls
+local extraHooksSet = false -- hooks for modules that load after this file, set on first login
 
 local function ClearKeyCache()
     wipe(keyCache.spells)
@@ -26,22 +25,22 @@ local function ClearKeyCache()
     wipe(keyCache.itemNames)
 end
 
--- Returns true when the action bar has switched away from the player's normal bar layout
--- so we can protect the keybind cache from being wiped by UPDATE_BINDINGS / ACTIONBAR_HIDEGRID.
+-- ── Override bar detection ────────────────────────────────────────────────────
+
+-- Returns true when the action bar has switched away from the player's normal layout,
+-- so cache-clearing events (UPDATE_BINDINGS, ACTIONBAR_HIDEGRID) are suppressed.
 --
--- Confirmed via in-game debug (TWW 11.x):
---   Skyriding          -> C_ActionBar.HasBonusActionBar = true, GetBonusBarIndex = 11
---   Ground mount       -> HasBonusActionBar = nil, GetBonusBarIndex = 0  (no protection needed)
---   HasOverrideActionBar / HasVehicleActionBar -> nil for skyriding (legacy APIs don't cover it)
+-- Confirmed in TWW 11.x: skyriding uses the bonus bar (GetBonusBarIndex = 11).
+-- HasOverrideActionBar / HasVehicleActionBar return nil for skyriding.
 local function IsInOverrideBar()
     if C_ActionBar then
-        if C_ActionBar.HasBonusActionBar          and C_ActionBar.HasBonusActionBar()          then return true end
-        if C_ActionBar.HasOverrideActionBar        and C_ActionBar.HasOverrideActionBar()        then return true end
-        if C_ActionBar.HasVehicleActionBar         and C_ActionBar.HasVehicleActionBar()         then return true end
-        if C_ActionBar.HasTempShapeshiftActionBar  and C_ActionBar.HasTempShapeshiftActionBar()  then return true end
-        if C_ActionBar.HasExtraActionBar           and C_ActionBar.HasExtraActionBar()           then return true end
+        if C_ActionBar.GetBonusBarIndex          and C_ActionBar.GetBonusBarIndex() > 0          then return true end
+        if C_ActionBar.HasOverrideActionBar       and C_ActionBar.HasOverrideActionBar()          then return true end
+        if C_ActionBar.HasVehicleActionBar        and C_ActionBar.HasVehicleActionBar()           then return true end
+        if C_ActionBar.HasTempShapeshiftActionBar and C_ActionBar.HasTempShapeshiftActionBar()    then return true end
+        if C_ActionBar.HasExtraActionBar          and C_ActionBar.HasExtraActionBar()             then return true end
     end
-    -- Legacy globals (pre-C_ActionBar builds / classic compatibility)
+    -- Legacy globals (kept for classic/era compat)
     if HasOverrideActionBar and HasOverrideActionBar() then return true end
     if HasVehicleActionBar  and HasVehicleActionBar()  then return true end
     local bar = _G["OverrideActionBar"]
@@ -49,7 +48,7 @@ local function IsInOverrideBar()
     return false
 end
 
--- ── Key abbreviation ─────────────────────────────────────────────────────────
+-- ── Key abbreviation ──────────────────────────────────────────────────────────
 
 local function AbbreviateKey(key)
     if not key or key == "" then return "" end
@@ -87,19 +86,15 @@ local function AbbreviateKey(key)
     else
         key = key:gsub("%-", "")
     end
-
     return key
 end
 
--- ── Spell / item helpers ─────────────────────────────────────────────────────
+-- ── Spell / item helpers ──────────────────────────────────────────────────────
 
 local function ResolveSpellName(spellID)
     if not spellID or spellID == 0 then return nil end
-    if C_Spell and C_Spell.GetSpellName then
-        local n = C_Spell.GetSpellName(spellID)
-        if n and n ~= "" then return n end
-    end
-    return nil
+    local n = C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(spellID)
+    return (n and n ~= "") and n or nil
 end
 
 local function ResolveSpellIDFromToken(token)
@@ -123,23 +118,18 @@ end
 
 local function ResolveItemName(itemID)
     if not itemID or itemID == 0 then return nil end
-    if C_Item and C_Item.GetItemNameByID then
-        local n = C_Item.GetItemNameByID(itemID)
-        if n and n ~= "" then return n end
-    end
-    return nil
+    local n = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(itemID)
+    return (n and n ~= "") and n or nil
 end
 
--- ── Key map ───────────────────────────────────────────────────────────────────
+-- ── Key map stores and queries ────────────────────────────────────────────────
 
 local function StoreSpell(map, spellID, fmtKey, force)
     if not spellID or spellID == 0 or not fmtKey or fmtKey == "" then return end
     if not force and map.spells[spellID] then return end
     map.spells[spellID] = fmtKey
-
     local name = ResolveSpellName(spellID)
     if name then map.spellNames[name:lower()] = fmtKey end
-
     if C_Spell then
         local ov = C_Spell.GetOverrideSpell and C_Spell.GetOverrideSpell(spellID)
         if ov and ov ~= 0 and (force or not map.spells[ov]) then
@@ -214,13 +204,9 @@ local function FirstCastToken(body)
             cmd = cmd:lower()
             if cmd == "cast" or cmd == "castsequence" then
                 rest = DropConditionals(rest)
-                if cmd == "castsequence" then
-                    rest = rest:gsub("^reset=%S+%s*", "")
-                end
+                if cmd == "castsequence" then rest = rest:gsub("^reset=%S+%s*", "") end
                 rest = ScrubToken((rest:match("^([^;]+)") or rest))
-                if rest ~= "" then
-                    return TrimStr(rest:match("^([^,]+)") or rest)
-                end
+                if rest ~= "" then return TrimStr(rest:match("^([^,]+)") or rest) end
             end
         end
     end
@@ -299,42 +285,28 @@ local function ReadButtonKey(btn)
     return nil
 end
 
--- ── Bar iterator ──────────────────────────────────────────────────────────────
+-- ── Bar scan ──────────────────────────────────────────────────────────────────
 
--- Yields (action, key) for override action bar buttons (dragonriding, vehicles).
--- Always runs regardless of which action bar addon is active.
+-- Yields (slot, key) for the OverrideActionBar buttons (skyriding, vehicles).
+-- In TWW the bonus bar uses slots 1-6 which overlap with the main bar; BuildKeyMap's
+-- seenSlots table deduplicates them, so these only contribute when the main bar is hidden.
 local function YieldOverrideBarButtons()
-    local seenOverride = {}
-    local function tryBtn(btn)
-        if not btn then return end
-        local slot = btn.action
-        if ActionButton_GetPagedID then
-            local paged = ActionButton_GetPagedID(btn)
-            if type(paged) == "number" and paged > 0 then slot = paged end
-        end
-        if not slot or slot <= 0 or seenOverride[slot] then return end
-        seenOverride[slot] = true
-        local k = ReadButtonKey(btn)
-        if k and k ~= "●" then coroutine.yield(slot, k) end
-    end
-
-    -- Try well-known global names first
     for i = 1, 12 do
         local btn = _G["OverrideActionBarButton" .. i]
         if not btn then break end
-        tryBtn(btn)
-    end
-
-    -- Fall back to walking OverrideActionBar's children (covers renamed / restructured frames)
-    local bar = _G["OverrideActionBar"]
-    if bar then
-        for _, child in ipairs({ bar:GetChildren() }) do
-            if child.action ~= nil then tryBtn(child) end
+        local slot = btn.action
+        if slot and slot > 0 then
+            local k = ReadButtonKey(btn)
+            if k and k ~= "●" then coroutine.yield(slot, k) end
         end
     end
 end
 
+-- Returns a coroutine iterator that yields (slot, key) for every bound action button.
+-- Detects Dominos, Bartender4, ElvUI, and the default Blizzard bars automatically.
+-- The OverrideActionBar is appended to every path.
 local function MakeBarIterator()
+    -- Dominos
     if _G["DominosActionButton1"] and _G["DominosActionButton1"].action then
         return coroutine.wrap(function()
             for i = 1, 180 do
@@ -348,6 +320,7 @@ local function MakeBarIterator()
         end)
     end
 
+    -- Bartender4
     if _G["BT4Button1"] and _G["BT4Button1"].action then
         return coroutine.wrap(function()
             for i = 1, 180 do
@@ -361,6 +334,7 @@ local function MakeBarIterator()
         end)
     end
 
+    -- ElvUI
     if _G["ElvUI_Bar1Button1"] and _G["ElvUI_Bar1Button1"].action then
         return coroutine.wrap(function()
             for bar = 1, 15 do
@@ -378,10 +352,12 @@ local function MakeBarIterator()
         end)
     end
 
+    -- Default Blizzard bars (ActionButton1-12 + all MultiBar variants)
     local barPrefixes = {
-        "ActionButton", "MultiBarBottomLeftButton", "MultiBarBottomRightButton",
-        "MultiBarRightButton", "MultiBarLeftButton",
-        "MultiBar5Button", "MultiBar6Button", "MultiBar7Button",
+        "ActionButton",
+        "MultiBarBottomLeftButton", "MultiBarBottomRightButton",
+        "MultiBarRightButton",      "MultiBarLeftButton",
+        "MultiBar5Button",          "MultiBar6Button", "MultiBar7Button",
     }
     return coroutine.wrap(function()
         for _, prefix in ipairs(barPrefixes) do
@@ -406,9 +382,12 @@ end
 
 -- ── Map construction ──────────────────────────────────────────────────────────
 
+-- Scans all action bar buttons, stores results in both a fresh map and the persistent cache,
+-- then merges cache entries for spells/items absent from the current bar (e.g. normal-bar
+-- spells that are off-screen while skyriding or in druid cat form).
 local function BuildKeyMap()
     local map = { spells = {}, spellNames = {}, items = {}, itemNames = {} }
-    local macros = {}
+    local macros    = {}
     local seenSlots = {}
 
     for slot, rawKey in MakeBarIterator() do
@@ -434,9 +413,7 @@ local function BuildKeyMap()
         local macroIdx
         if GetActionText and GetMacroIndexByName then
             local mname = GetActionText(m.slot)
-            if mname and mname ~= "" then
-                macroIdx = GetMacroIndexByName(mname)
-            end
+            if mname and mname ~= "" then macroIdx = GetMacroIndexByName(mname) end
         end
         if (not macroIdx or macroIdx == 0) and type(m.id) == "number" and m.id > 0 and GetMacroInfo then
             if GetMacroInfo(m.id) then macroIdx = m.id end
@@ -458,12 +435,11 @@ local function BuildKeyMap()
                 end
 
                 local hasSlash = body:lower():find("/cast", 1, true) or body:lower():find("/castsequence", 1, true)
-                local tokens = ExtractUseTokens(body)
+                local tokens   = ExtractUseTokens(body)
                 if tokens then
                     for _, tok in ipairs(tokens) do
                         local n = tonumber(tok)
                         if n then
-                            -- Plain number: slot IDs 13/14 are trinket slots, anything above is a direct item ID
                             if (n == 13 or n == 14) and not hasSlash then
                                 local equipped = GetInventoryItemID and GetInventoryItemID("player", n)
                                 if equipped then
@@ -475,13 +451,11 @@ local function BuildKeyMap()
                                 StoreItem(keyCache, n, m.fmt, true)
                             end
                         else
-                            -- "item:ITEMID" or full item string "item:ITEMID:bonus:..." (/use item:245898)
                             local rawID = tok:match("^[Ii]tem:(%d+)")
                             if rawID then
                                 StoreItem(map, tonumber(rawID), m.fmt, true)
                                 StoreItem(keyCache, tonumber(rawID), m.fmt, true)
                             elseif GetItemInfo then
-                                -- Item name token (/use Light's Potential) — resolve via cache
                                 local _, link = GetItemInfo(tok)
                                 if link then
                                     local id = link:match("item:(%d+)")
@@ -498,9 +472,8 @@ local function BuildKeyMap()
         end
     end
 
-    -- Merge cache into map: provides keybinds for spells not on the current bar
-    -- (e.g. normal-form spells while in druid cat form, or normal bar while dragonriding).
-    -- Cache entries only won for spells absent from the current scan, so current bar always wins.
+    -- Merge cache: fills in keybinds for spells/items not on the active bar right now.
+    -- Current bar always wins; cache only fills gaps.
     for spellID, key in pairs(keyCache.spells) do
         if not map.spells[spellID] then map.spells[spellID] = key end
     end
@@ -520,19 +493,14 @@ end
 -- ── Overlay creation & styling ────────────────────────────────────────────────
 
 local function GetOverlay(frame)
-    if frame.SCMKeybindOverlay then
-        return frame.SCMKeybindOverlay
-    end
-
+    if frame.SCMKeybindOverlay then return frame.SCMKeybindOverlay end
     local overlay = CreateFrame("Frame", nil, frame)
     overlay:SetFrameLevel(frame:GetFrameLevel() + 5)
     overlay:SetAllPoints(frame)
-
     local text = overlay:CreateFontString(nil, "OVERLAY")
     text:SetDrawLayer("OVERLAY", 7)
     text:SetShadowColor(0, 0, 0, 1)
     text:SetShadowOffset(1, -1)
-
     overlay.text = text
     frame.SCMKeybindOverlay = overlay
     return overlay
@@ -545,15 +513,14 @@ end
 local function ApplyStyle(overlay, cfg)
     if overlay._scmStyleVersion == styleVersion then return end
     overlay._scmStyleVersion = styleVersion
-    local text = overlay.text
     local fontPath = DEFAULT_FONT
     if LSM then
         local p = LSM:Fetch("font", cfg.fontName)
         if p then fontPath = p end
     end
-    text:SetFont(fontPath, cfg.fontSize or 11, cfg.fontFlags or "OUTLINE")
+    overlay.text:SetFont(fontPath, cfg.fontSize or 11, cfg.fontFlags or "OUTLINE")
     local c = cfg.color or { 1, 1, 1, 1 }
-    text:SetTextColor(c[1] or 1, c[2] or 1, c[3] or 1, c[4] or 1)
+    overlay.text:SetTextColor(c[1] or 1, c[2] or 1, c[3] or 1, c[4] or 1)
 end
 
 local function ShowKeybind(frame, key, cfg)
@@ -575,55 +542,32 @@ end
 
 -- ── Per-frame application ─────────────────────────────────────────────────────
 
--- For regular CDM viewer children (SCMSpellID set by icons.lua:ProcessSingleChild)
 local function ApplyToViewerChild(child, map, cfg)
     local spellID = child.SCMSpellID or child.SCMLinkedSpellID
-    if not spellID then
-        HideKeybind(child)
-        return
-    end
-
+    if not spellID then HideKeybind(child); return end
     local key = QuerySpell(map, spellID)
-    if not key or key == "" then
-        HideKeybind(child)
-        return
-    end
-
+    if not key or key == "" then HideKeybind(child); return end
     ShowKeybind(child, key, cfg)
 end
 
--- For SCM custom icon frames (SCMConfig with spellID/itemID/slotID)
 local function ApplyToCustomFrame(frame, map, cfg)
-    local config = frame.SCMConfig
+    local config   = frame.SCMConfig
     if not config then return end
-
     local key
     local iconType = frame.SCMIconType
-
     if iconType == "spell" or iconType == "timer" then
         key = config.spellID and QuerySpell(map, config.spellID)
     elseif iconType == "item" then
         key = config.itemID and QueryItem(map, config.itemID)
-        if not key and frame.SCMSpellID then
-            key = QuerySpell(map, frame.SCMSpellID)
-        end
+        if not key and frame.SCMSpellID then key = QuerySpell(map, frame.SCMSpellID) end
     elseif iconType == "slot" then
         if config.slotID and GetInventoryItemID then
             local itemID = GetInventoryItemID("player", config.slotID)
-            if itemID and itemID ~= 0 then
-                key = QueryItem(map, itemID)
-            end
+            if itemID and itemID ~= 0 then key = QueryItem(map, itemID) end
         end
-        if not key and config.spellID then
-            key = QuerySpell(map, config.spellID)
-        end
+        if not key and config.spellID then key = QuerySpell(map, config.spellID) end
     end
-
-    if not key or key == "" then
-        HideKeybind(frame)
-        return
-    end
-
+    if not key or key == "" then HideKeybind(frame); return end
     ShowKeybind(frame, key, cfg)
 end
 
@@ -632,20 +576,14 @@ end
 function Keybinds.ApplyToFrame(frame)
     if not keyMap then return end
     local cfg = GetKeybindCfg()
-    if not cfg or not cfg.enabled then
-        HideKeybind(frame)
-        return
-    end
+    if not cfg or not cfg.enabled then HideKeybind(frame); return end
     ApplyToCustomFrame(frame, keyMap, cfg)
 end
 
 function Keybinds.ApplyToViewerChild(child)
     if not keyMap then return end
     local cfg = GetKeybindCfg()
-    if not cfg or not cfg.enabled then
-        HideKeybind(child)
-        return
-    end
+    if not cfg or not cfg.enabled then HideKeybind(child); return end
     ApplyToViewerChild(child, keyMap, cfg)
 end
 
@@ -654,11 +592,10 @@ function Keybinds.HideFromFrame(frame)
 end
 
 function Keybinds.RefreshAllFrames()
-    local map = keyMap
-    local cfg = GetKeybindCfg()
+    local map     = keyMap
+    local cfg     = GetKeybindCfg()
     local enabled = cfg and cfg.enabled
 
-    -- Custom SCM frames (items, slots, timers, custom spells)
     if SCM.CustomIcons and SCM.CustomIcons.ForEachActiveFrame then
         SCM.CustomIcons.ForEachActiveFrame(function(frame)
             if not frame.SCMConfig then return end
@@ -670,7 +607,6 @@ function Keybinds.RefreshAllFrames()
         end)
     end
 
-    -- Regular CDM viewer children (native Blizzard CDM spells)
     for _, viewerName in ipairs({ "EssentialCooldownViewer", "UtilityCooldownViewer" }) do
         local viewer = _G[viewerName]
         if viewer then
@@ -696,26 +632,42 @@ function Keybinds.Rebuild()
     Keybinds.RefreshAllFrames()
 end
 
--- ── Events ────────────────────────────────────────────────────────────────────
+-- ── Event handling ────────────────────────────────────────────────────────────
+
+-- Single debounced rebuild scheduler. Uses C_Timer.NewTimer so a pending short-delay
+-- rebuild can be upgraded to a longer delay when a bar-swap event arrives.
+local function ScheduleRebuild(delay)
+    delay = delay or 0.15
+    if rebuildTimer then
+        if rebuildDelay >= delay then return end  -- existing timer already covers this
+        rebuildTimer:Cancel()
+        rebuildTimer = nil
+    end
+    rebuildDelay  = delay
+    rebuildTimer  = C_Timer.NewTimer(delay, function()
+        rebuildTimer = nil
+        rebuildDelay = 0
+        Keybinds.Rebuild()
+    end)
+end
 
 local eventFrame = CreateFrame("Frame")
 eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
+    -- Always-on: deferred hook registration and initial setup on first login/reload
     if event == "PLAYER_ENTERING_WORLD" then
         if not extraHooksSet then
             extraHooksSet = true
-            -- update.lua loads after this file, so defer these hooks until runtime.
-            -- ApplyAllCDManagerConfigs: settings panel refresh, equipment change, combat state change.
-            -- Apply*CDManagerConfig: native viewer layout changes (spell added to Essential/Utility).
-            hooksecurefunc(SCM, "ApplyAllCDManagerConfigs", Keybinds.RefreshAllFrames)
+            hooksecurefunc(SCM, "ApplyAllCDManagerConfigs",     Keybinds.RefreshAllFrames)
             hooksecurefunc(SCM, "ApplyEssentialCDManagerConfig", Keybinds.RefreshAllFrames)
-            hooksecurefunc(SCM, "ApplyUtilityCDManagerConfig", Keybinds.RefreshAllFrames)
+            hooksecurefunc(SCM, "ApplyUtilityCDManagerConfig",   Keybinds.RefreshAllFrames)
         end
-        if arg1 or arg2 then -- isInitialLogin or isReload
+        if arg1 or arg2 then  -- isInitialLogin or isReload
             Keybinds.OnSettingChanged()
         end
         return
     end
 
+    -- Flush any deferred rebuild that was blocked by combat
     if event == "PLAYER_REGEN_ENABLED" then
         if combatDirty then
             combatDirty = false
@@ -724,19 +676,14 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
         return
     end
 
-    -- Bar-swap events: override, bonus (skyriding), extra, mount display change.
-    -- Schedule a single debounced rebuild so new bar spells get keybinds once populated.
-    if event == "UPDATE_OVERRIDE_ACTIONBAR"
-       or event == "UPDATE_BONUS_ACTIONBAR"
-       or event == "UPDATE_EXTRA_ACTIONBAR"
-       or event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
-        if not pendingOverrideCheck then
-            pendingOverrideCheck = true
-            C_Timer.After(0.3, function()
-                pendingOverrideCheck = false
-                Keybinds.Rebuild()
-            end)
-        end
+    -- Bar-swap events: a new bar is populating, give it 0.3 s before scanning.
+    -- UPDATE_BONUS_ACTIONBAR covers skyriding (confirmed TWW 11.x, GetBonusBarIndex=11)
+    -- and druid forms. UPDATE_OVERRIDE_ACTIONBAR covers vehicles / boss mechanics.
+    if event == "UPDATE_BONUS_ACTIONBAR"
+    or event == "UPDATE_OVERRIDE_ACTIONBAR"
+    or event == "UPDATE_EXTRA_ACTIONBAR"
+    or event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
+        ScheduleRebuild(0.3)
         return
     end
 
@@ -748,36 +695,31 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
         return
     end
 
-    -- Spec/macro/equipment changes always reset the cache — these invalidate spell loadouts.
-    -- Binding changes and bar drag (HIDEGRID) only reset when NOT in an override bar so that
-    -- normal-bar keybinds cached before mounting survive rebinding while dragonriding/in vehicle.
+    -- Hard resets: spec, equipment, and macro changes fully invalidate the spell loadout.
+    -- Binding changes and bar drag only clear cache when the normal bar is active; while
+    -- skyriding / in a vehicle / in a druid form, the normal-bar keybinds must survive.
     if event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED"
-       or event == "UPDATE_MACROS"
-       or event == "PLAYER_EQUIPMENT_CHANGED" then
+    or event == "PLAYER_EQUIPMENT_CHANGED"
+    or event == "UPDATE_MACROS" then
         ClearKeyCache()
     elseif (event == "UPDATE_BINDINGS" or event == "ACTIONBAR_HIDEGRID") and not IsInOverrideBar() then
         ClearKeyCache()
     end
 
-    if pendingRebuild then return end
-    pendingRebuild = true
-    C_Timer.After(0.15, function()
-        pendingRebuild = false
-        Keybinds.Rebuild()
-    end)
+    ScheduleRebuild(0.15)
 end)
 
--- ── Lifecycle ────────────────────────────────────────────────────────────────
+-- ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 function Keybinds.Enable()
-    pendingOverrideCheck = false
+    if rebuildTimer then rebuildTimer:Cancel(); rebuildTimer = nil; rebuildDelay = 0 end
     ClearKeyCache()
     eventFrame:RegisterEvent("UPDATE_BINDINGS")
     eventFrame:RegisterEvent("UPDATE_MACROS")
     eventFrame:RegisterEvent("ACTIONBAR_HIDEGRID")
     eventFrame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
-    eventFrame:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR")
     eventFrame:RegisterEvent("UPDATE_BONUS_ACTIONBAR")
+    eventFrame:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR")
     eventFrame:RegisterEvent("UPDATE_EXTRA_ACTIONBAR")
     eventFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
     eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
@@ -788,12 +730,11 @@ function Keybinds.Enable()
 end
 
 function Keybinds.Disable()
+    if rebuildTimer then rebuildTimer:Cancel(); rebuildTimer = nil; rebuildDelay = 0 end
     eventFrame:UnregisterAllEvents()
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-    keyMap = nil
-    combatDirty = false
-    pendingRebuild = false
-    pendingOverrideCheck = false
+    keyMap        = nil
+    combatDirty   = false
     Keybinds.RefreshAllFrames()
 end
 
@@ -807,100 +748,17 @@ function Keybinds.OnSettingChanged()
     end
 end
 
--- ── Bootstrap ────────────────────────────────────────────────────────────────
+-- ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 -- Re-apply keybinds after any full viewer rebuild (profile/spec/scale changes).
--- SCM.RefreshCooldownViewerData is set on the table in core.lua before this file loads.
 hooksecurefunc(SCM, "RefreshCooldownViewerData", Keybinds.RefreshAllFrames)
 
--- Force a bar rescan when a custom icon is added — AddCustomIcon never goes through
--- RefreshCooldownViewerData, so the icon's spell might not be in keyMap yet.
+-- Force a bar rescan when a custom icon is added so the new spell's keybind is found.
 hooksecurefunc(SCM, "AddCustomIcon", Keybinds.Rebuild)
 
--- Async data-load paths: spell/item data may not be cached when AddCustomIcon runs,
--- so the frame is created later by CreateSpellIcon/CreateItemIcon. Apply keybinds
--- once the frame actually exists. customicons.lua loads before this file, so these
--- hooks can be registered at bootstrap time.
+-- Spell/item data may load asynchronously after AddCustomIcon; apply once the frame exists.
 hooksecurefunc(SCM.CustomIcons, "CreateSpellIcon", Keybinds.RefreshAllFrames)
-hooksecurefunc(SCM.CustomIcons, "CreateItemIcon", Keybinds.RefreshAllFrames)
+hooksecurefunc(SCM.CustomIcons, "CreateItemIcon",  Keybinds.RefreshAllFrames)
 
--- PLAYER_ENTERING_WORLD is registered here so it survives Disable() which calls
--- UnregisterAllEvents(). Enable() also re-registers it to keep the set consistent.
+-- Keep PLAYER_ENTERING_WORLD registered at all times so it survives Disable().
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-
--- ── Debug command ─────────────────────────────────────────────────────────────
--- /scmkbdebug  — run while mounted to diagnose override-bar keybind detection
-SLASH_SCMKBDEBUG1 = "/scmkbdebug"
-SlashCmdList["SCMKBDEBUG"] = function()
-    print("|cff00ff00=== SCM Keybind Debug ===|r")
-    print("  IsInOverrideBar:", IsInOverrideBar())
-    print("  IsMounted:", IsMounted and IsMounted() or "nil")
-    -- Legacy globals
-    print("  HasOverrideActionBar (legacy):", HasOverrideActionBar and HasOverrideActionBar() or "nil")
-    print("  HasVehicleActionBar (legacy):", HasVehicleActionBar and HasVehicleActionBar() or "nil")
-    -- C_ActionBar namespace
-    if C_ActionBar then
-        local function cab(fn) return C_ActionBar[fn] and C_ActionBar[fn]() or "nil/missing" end
-        print("  C_ActionBar.HasOverrideActionBar:", cab("HasOverrideActionBar"))
-        print("  C_ActionBar.HasVehicleActionBar:", cab("HasVehicleActionBar"))
-        print("  C_ActionBar.HasBonusActionBar:", cab("HasBonusActionBar"))
-        print("  C_ActionBar.HasTempShapeshiftActionBar:", cab("HasTempShapeshiftActionBar"))
-        print("  C_ActionBar.HasExtraActionBar:", cab("HasExtraActionBar"))
-        if C_ActionBar.GetBonusBarIndex then print("  C_ActionBar.GetBonusBarIndex:", C_ActionBar.GetBonusBarIndex()) end
-    else
-        print("  C_ActionBar: NOT available")
-    end
-
-    -- Scan OverrideActionBarButton globals
-    local foundGlobal = false
-    for i = 1, 12 do
-        local btn = _G["OverrideActionBarButton" .. i]
-        if not btn then
-            if i == 1 then print("  OverrideActionBarButton1: nil (globals don't exist)") end
-            break
-        end
-        foundGlobal = true
-        local slot = btn.action or 0
-        local paged = ActionButton_GetPagedID and ActionButton_GetPagedID(btn) or "n/a"
-        local k = ReadButtonKey(btn)
-        local aType, aID = GetActionInfo(slot)
-        print(string.format("  OAB%d: slot=%s paged=%s key=%s -> %s %s", i, slot, tostring(paged), tostring(k), tostring(aType), tostring(aID)))
-    end
-
-    -- Scan OverrideActionBar children
-    local bar = _G["OverrideActionBar"]
-    print("  OverrideActionBar frame:", bar and "exists" or "nil")
-    if bar then
-        local n = 0
-        for _, child in ipairs({ bar:GetChildren() }) do
-            if child.action ~= nil then
-                n = n + 1
-                if n <= 6 then
-                    local slot = child.action or 0
-                    local k = ReadButtonKey(child)
-                    local aType, aID = GetActionInfo(slot)
-                    print(string.format("  OABar child %d: slot=%s key=%s -> %s %s", n, slot, tostring(k), tostring(aType), tostring(aID)))
-                end
-            end
-        end
-        if n == 0 then print("  OABar: no children with .action") end
-    end
-
-    -- Check what keyMap has, including which dragonriding spells are present
-    print("  keyMap exists:", keyMap ~= nil)
-    if keyMap then
-        local spellCount, itemCount = 0, 0
-        for _ in pairs(keyMap.spells) do spellCount = spellCount + 1 end
-        for _ in pairs(keyMap.items) do itemCount = itemCount + 1 end
-        print("  keyMap: " .. spellCount .. " spells, " .. itemCount .. " items")
-        -- Print spells found from override bar slots (as seen above: 362969, 361469, 357208, 396286, 409311)
-        local overrideSpellIDs = { 362969, 361469, 357208, 396286, 409311 }
-        for _, id in ipairs(overrideSpellIDs) do
-            if keyMap.spells[id] then
-                print(string.format("  keyMap has override spell %d -> '%s'", id, keyMap.spells[id]))
-            end
-        end
-    end
-    print("  IsInOverrideBar (new):", IsInOverrideBar())
-    print("|cff00ff00=== End Debug ===|r")
-end
