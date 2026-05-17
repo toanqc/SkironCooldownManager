@@ -507,6 +507,46 @@ local function CreateAddSpellDropdown(owner, rootDescription, scrollFrame, ancho
 	local customButton = rootDescription:CreateButton("Custom")
 	CreateCustomIconButtons(customButton, scrollFrame, anchorIndex, false, customButtonConfigs)
 
+	if CreateCategoryObjectLookup and CooldownViewerSettingsDataProvider_GetCategories then
+		local copyFromButton = rootDescription:CreateButton("Copy From")
+		local lookup = CreateCategoryObjectLookup()
+
+		for _, sourceCategory in ipairs(CooldownViewerSettingsDataProvider_GetCategories()) do
+			local category = sourceCategory >= 0 and sourceCategory < 3 and lookup[sourceCategory]
+
+			if category then
+				copyFromButton:CreateButton(category.title, function()
+					local dataProvider = CooldownViewerSettings:GetDataProvider()
+					local displayData = dataProvider and dataProvider.displayData
+					if not displayData then
+						return
+					end
+
+					for _, cooldownID in ipairs(displayData.orderedCooldownIDs) do
+						local data = displayData.cooldownInfoByID[cooldownID]
+						local configID = data and data.category == sourceCategory and GetCooldownConfigKey(cooldownID)
+
+						if configID and not SCM:IsSpellInData(cooldownID, data.category) and not DoesScrollFrameContainSpellConfig(scrollFrame, configID, cooldownID) then
+							local info = C_CooldownViewer.GetCooldownViewerCooldownInfo(cooldownID)
+							if info then
+								info.spellID = GetSpellIDForCooldownInfo(info)
+								info.cooldownID = cooldownID
+								info.configID = configID
+								info.isDisabled = false
+								info.category = data.category
+
+								local dataIndex = scrollFrame:AddSpellBySpellID(info)
+								SCM:AddSpellToConfig(anchorIndex, dataIndex, info, data, sourceCategory)
+							end
+						end
+					end
+
+					ApplyModeConfigUpdate(anchorIndex, mode)
+				end)
+			end
+		end
+	end
+
 	for _, customEntry in pairs(SCM.CustomEntries) do
 		customEntry(rootDescription, scrollFrame, anchorIndex)
 	end
