@@ -477,7 +477,7 @@ local function CreateAddSpellDropdown(owner, rootDescription, scrollFrame, ancho
 			info.spellID = spellID
 
 			if configID and not SCM:IsSpellInData(cooldownID, data.category) and not DoesScrollFrameContainSpellConfig(scrollFrame, configID, cooldownID) then
-				table.insert(buffItems, { info = info, data = data, cooldownID = cooldownID, targetCategory = 2 })
+				table.insert(buffItems, { info = info, data = data, cooldownID = cooldownID, targetCategory = Enum.CooldownViewerCategory.TrackedBuff })
 			end
 		end
 	end

@@ -348,3 +348,43 @@ function SCM:GetConfigTableByID(configID, iconType, isGlobal)
 	local configTable = self:GetConfigTable(iconType, isGlobal)
 	return configTable and configTable[configID]
 end
+
+function SCM:UpdateCooldownInfo(isFirstLoad, dataProvider)
+	if InCombatLockdown() then
+		return
+	end
+
+	self.defaultCooldownViewerConfig = {
+		cooldownIDs = {},
+		spellIDs = {},
+	}
+
+	local displayData = dataProvider and dataProvider.displayData.cooldownInfoByID
+	for _, cooldownCategory in pairs(CooldownViewerSettingsDataProvider_GetCategories()) do
+		self.defaultCooldownViewerConfig[cooldownCategory] = {
+			spellIDs = {},
+			cooldownIDs = {},
+		}
+
+		local cooldownIDs = C_CooldownViewer.GetCooldownViewerCategorySet(cooldownCategory, true)
+		for _, cooldownID in ipairs(cooldownIDs) do
+			local info = C_CooldownViewer.GetCooldownViewerCooldownInfo(cooldownID)
+			if info then
+				local data = displayData[cooldownID]
+				if data then
+					local spellID = data.spellID
+					self.defaultCooldownViewerConfig[cooldownCategory][data.cooldownID] = data
+					self.defaultCooldownViewerConfig[cooldownCategory].spellIDs[spellID] = data
+					self.defaultCooldownViewerConfig[cooldownCategory].cooldownIDs[data.cooldownID] = data
+					self.defaultCooldownViewerConfig.cooldownIDs[data.cooldownID] = data
+
+					self.defaultCooldownViewerConfig.spellIDs[spellID] = data
+					for _, linkedSpellID in ipairs(data.linkedSpellIDs or {}) do
+						self.defaultCooldownViewerConfig[cooldownCategory].spellIDs[linkedSpellID] = data
+						self.defaultCooldownViewerConfig.spellIDs[linkedSpellID] = data
+					end
+				end
+			end
+		end
+	end
+end
