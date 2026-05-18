@@ -189,8 +189,12 @@ local function SetCustomIconCountText(frame, iconType, config)
 	local itemID = frame.SCMItemID
 
 	local count = C_Item.GetItemCount(itemID, false, true)
-	frame.ChargeCount.Current:SetText(count)
-	frame.ChargeCount.Current:Show()
+	if not config.hideStackText then
+		frame.ChargeCount.Current:SetText(count)
+		frame.ChargeCount.Current:Show()
+	else
+		frame.ChargeCount.Current:SetText("")
+	end
 
 	if count <= 0 then
 		frame.Icon:SetVertexColor(0.4, 0.4, 0.4)
@@ -235,6 +239,11 @@ local function UpdateCustomIconGlow(frame, isActive)
 	end
 
 	if frame.SCMConfig.glowWhileActive and isActive then
+		if not frame.SCMGlowWhileActive then
+			frame.SCMGlowWhileActive = true
+			SCM:StartCustomGlow(frame)
+		end
+	elseif frame.SCMConfig.glowWhileInactive and not isActive then
 		if not frame.SCMGlowWhileActive then
 			frame.SCMGlowWhileActive = true
 			SCM:StartCustomGlow(frame)
@@ -344,28 +353,38 @@ local function UpdateCustomIconCooldown(frame, iconType, config)
 
 	if iconType == "item" then
 		local itemID = frame.SCMItemID
-		local count = C_Item.GetItemCount(itemID, false, true)
+		--local count = C_Item.GetItemCount(itemID, false, true)
 		local startTime, duration, _, modRate = C_Item.GetItemCooldown(itemID)
-		if duration > 0 and (startTime + duration) - GetTime() >= 0.1 then
-			if modRate then
-				frame.Cooldown:SetCooldown(startTime, duration, modRate)
-			else
-				frame.Cooldown:SetCooldown(startTime, duration)
+
+		if duration > 0 and (startTime + duration) - GetTime() >= 0 then
+			if not frame.isOnCooldown then
+				if modRate then
+					frame.Cooldown:SetCooldown(startTime, duration, modRate)
+				else
+					frame.Cooldown:SetCooldown(startTime, duration)
+				end
+
+				if itemID == 5512 and duration < 0.1 then
+					frame.Icon:SetVertexColor(CooldownViewerConstants.ITEM_NOT_USABLE_COLOR:GetRGBA())
+					frame.Icon:SetDesaturated(false)
+				else
+					frame.Icon:SetVertexColor(1, 1, 1)
+					frame.Icon:SetDesaturated(true)
+				end
+				frame.isOnCooldown = true
+				UpdateCustomIconGCD(frame, config, true)
+				UpdateCustomIconGlow(frame, false)
 			end
-			frame.Icon:SetVertexColor(1, 1, 1)
-			frame.Icon:SetDesaturated(true)
-			frame.isOnCooldown = true
-			UpdateCustomIconGCD(frame, config, true)
-			UpdateCustomIconGlow(frame, false)
+
 			return true
-		elseif count <= 0 then
+		elseif duration == 0 and frame.isOnCooldown then
 			frame.isOnCooldown = false
 			frame.Cooldown:Clear()
 			frame.Icon:SetVertexColor(0.4, 0.4, 0.4)
 			UpdateCustomIconGCD(frame, config, true)
 			UpdateCustomIconGlow(frame, false)
-			return
 		end
+		return
 	end
 
 	if iconType == "slot" and config.slotID then

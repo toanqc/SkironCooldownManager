@@ -22,11 +22,6 @@ local function ApplyChargeAndApplicationStyle(child, options, fontPath)
 			child.ChargeCount.Current:SetFont(fontPath, size, outline)
 		end
 
-		if child.SCMCustom then
-			--child.ChargeCount:SetWidth(child.ChargeCount.Current:GetWidth())
-			--child.ChargeCount:SetHeight(child.ChargeCount.Current:GetStringHeight() - 10)
-		end
-
 		child.ChargeCount.Current:ClearAllPoints()
 		child.ChargeCount.Current:SetPoint(
 			rowConfig.chargePoint or options.chargePoint,
@@ -121,6 +116,12 @@ local function ApplyCooldownStyle(child, options)
 			local parent = self:GetParent()
 			local forceActiveSwipe = parent.SCMConfig and parent.SCMConfig.forceActiveSwipe
 
+			local cooldownFormatter = SCM.Cooldowns.NumericRuleFormatter
+			if cooldownFormatter and not self.SCMFormatter then
+				self.SCMFormatter = true
+				self:SetCountdownFormatter(cooldownFormatter)
+			end
+
 			if parent.auraInstanceID or parent.SCMFakeAuraInstanceID or parent.SCMBuffOptions then
 				if options.disableRegularIconActiveSwipe and not forceActiveSwipe then
 					if options.recolorNormalSwipe then
@@ -148,22 +149,37 @@ local function ApplyCooldownStyle(child, options)
 			ApplyCooldownFont(self, options)
 		end)
 
-		-- hooksecurefunc(cooldownFrame, "Clear", function(self)
-		-- 	if options.recolorActiveSwipe then
-		-- 		self:SetSwipeColor(0, 0, 0, 0.7)
-		-- 	end
-		-- end)
-
 		ApplyCooldownFont(cooldownFrame, options)
+	end
+end
+
+local function ApplyZoomSettings(child, options)
+	local iconZoom = options.iconZoom
+
+	if options.keepIconSquareRatio and child.SCMWidth and child.SCMHeight then
+		local xCrop = 1 - iconZoom
+		local yCrop = 1 - iconZoom
+		local ratio = child.SCMWidth / child.SCMHeight
+
+		if ratio > 1 then
+			yCrop = xCrop / ratio
+		elseif ratio < 1 then
+			xCrop = yCrop * ratio
+		end
+
+		local left = (1 - xCrop) / 2
+		local right = 1 - left
+		local top = (1 - yCrop) / 2
+		local bottom = 1 - top
+
+		child.Icon:SetTexCoord(left, right, top, bottom)
+	else
+		child.Icon:SetTexCoord(iconZoom, 1 - iconZoom, iconZoom, 1 - iconZoom)
 	end
 end
 
 function SCM:SkinChild(child, childConfig)
 	local options = self.db.profile.options
-	local frameStrata = child.SCMAnchorFrameStrata or options.iconFrameStrata
-	if frameStrata and frameStrata ~= "" then
-		child:SetFrameStrata(frameStrata)
-	end
 
 	if C_AddOns.IsAddOnLoaded("ElvUI") and ElvUI[1].private.skins.blizzard.cooldownManager then
 		return
@@ -171,6 +187,11 @@ function SCM:SkinChild(child, childConfig)
 
 	if not options.enableSkinning then
 		return
+	end
+
+	local frameStrata = child.SCMAnchorFrameStrata or options.iconFrameStrata
+	if frameStrata and frameStrata ~= "" then
+		child:SetFrameStrata(frameStrata)
 	end
 
 	local borderSize = SCM:PixelPerfect() * options.borderSize
@@ -193,11 +214,8 @@ function SCM:SkinChild(child, childConfig)
 		child.Icon:SetPoint("TOPLEFT", child, "TOPLEFT", borderSize, -borderSize)
 		child.Icon:SetPoint("BOTTOMRIGHT", child, "BOTTOMRIGHT", -borderSize, borderSize)
 
-		local iconZoom = options.iconZoom
-		child.Icon:SetTexCoord(iconZoom, 1 - iconZoom, iconZoom, 1 - iconZoom)
-
-		local fontPath = LSM:Fetch("font", options.chargeFont)
-		ApplyChargeAndApplicationStyle(child, options, fontPath)
+		ApplyZoomSettings(child, options)
+		ApplyChargeAndApplicationStyle(child, options, LSM:Fetch("font", options.chargeFont))
 		ApplyCooldownStyle(child, options)
 	elseif not child.SCMSkinned then
 		child.SCMSkinned = true
@@ -254,8 +272,8 @@ function SCM:SkinChild(child, childConfig)
 			child.DebuffBorder:SetAlpha(0)
 		end
 
-		local fontPath = LSM:Fetch("font", options.chargeFont)
-		ApplyChargeAndApplicationStyle(child, options, fontPath)
+		ApplyZoomSettings(child, options)
+		ApplyChargeAndApplicationStyle(child, options, LSM:Fetch("font", options.chargeFont))
 		ApplyCooldownStyle(child, options)
 	end
 

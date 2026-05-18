@@ -182,6 +182,7 @@ end
 
 function SCM:PLAYER_REGEN_ENABLED()
 	if not self.appliedOptions then
+		self:UpdateDB()
 		self:ApplyOptions()
 	end
 
@@ -191,6 +192,7 @@ end
 function SCM:PLAYER_REGEN_DISABLED() end
 
 function SCM:EDIT_MODE_LAYOUTS_UPDATED()
+	SCM:UpdateDB()
 	SCM:ApplyOptions()
 end
 
@@ -207,6 +209,17 @@ function SCM:TRAIT_CONFIG_UPDATED()
 end
 
 function SCM:ACTIVE_PLAYER_SPECIALIZATION_CHANGED()
+	for _, viewerName in ipairs({ "EssentialCooldownViewer", "UtilityCooldownViewer", "BuffIconCooldownViewer", "BuffBarCooldownViewer" }) do
+		local viewer = _G[viewerName]
+		if viewer then
+			local children = SCM.Cache.cachedViewerChildren[viewer] or { viewer:GetChildren() }
+			for _, child in ipairs(children) do
+				SCM.Utils.ResetChildSCMState(child)
+			end
+			SCM:InvalidateViewerChildrenCache(viewer)
+		end
+	end
+
 	C_Timer.After(0.5, function()
 		RefreshCooldownViewerData(true)
 		SCM:RefreshResourceBarConfig()
@@ -254,6 +267,7 @@ local function OnProfileChanged(_, _, _, skipReset)
 	end
 
 	SCM:InvalidateAnchorLinks()
+	SCM:UpdateDB()
 
 	SCM.appliedOptions = nil
 	SCM:ApplyOptions()
@@ -333,4 +347,44 @@ end
 function SCM:GetConfigTableByID(configID, iconType, isGlobal)
 	local configTable = self:GetConfigTable(iconType, isGlobal)
 	return configTable and configTable[configID]
+end
+
+function SCM:UpdateCooldownInfo(isFirstLoad, dataProvider)
+	if InCombatLockdown() then
+		return
+	end
+
+	self.defaultCooldownViewerConfig = {
+		cooldownIDs = {},
+		spellIDs = {},
+	}
+
+	local displayData = dataProvider and dataProvider.displayData.cooldownInfoByID
+	for _, cooldownCategory in pairs(CooldownViewerSettingsDataProvider_GetCategories()) do
+		self.defaultCooldownViewerConfig[cooldownCategory] = {
+			spellIDs = {},
+			cooldownIDs = {},
+		}
+
+		local cooldownIDs = C_CooldownViewer.GetCooldownViewerCategorySet(cooldownCategory, true)
+		for _, cooldownID in ipairs(cooldownIDs) do
+			local info = C_CooldownViewer.GetCooldownViewerCooldownInfo(cooldownID)
+			if info then
+				local data = displayData[cooldownID]
+				if data then
+					local spellID = data.spellID
+					self.defaultCooldownViewerConfig[cooldownCategory][data.cooldownID] = data
+					self.defaultCooldownViewerConfig[cooldownCategory].spellIDs[spellID] = data
+					self.defaultCooldownViewerConfig[cooldownCategory].cooldownIDs[data.cooldownID] = data
+					self.defaultCooldownViewerConfig.cooldownIDs[data.cooldownID] = data
+
+					self.defaultCooldownViewerConfig.spellIDs[spellID] = data
+					for _, linkedSpellID in ipairs(data.linkedSpellIDs or {}) do
+						self.defaultCooldownViewerConfig[cooldownCategory].spellIDs[linkedSpellID] = data
+						self.defaultCooldownViewerConfig.spellIDs[linkedSpellID] = data
+					end
+				end
+			end
+		end
+	end
 end

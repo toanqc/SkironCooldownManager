@@ -88,6 +88,98 @@ Constants.ResourceBarGrowthDirection = {
 	DOWN = "Down",
 }
 
+Constants.CooldownTimer = {}
+
+Constants.CooldownTimer.DisplayStyle = {
+	{
+		decimalSeconds = "Decimal Seconds (1.1)",
+		seconds = "Seconds (10s)",
+		secondsOnly = "Seconds (10)",
+		clock = "Clock (1:10)",
+		minutes = "Minutes (2m)",
+		hours = "Hours (1h)",
+		days = "Days (1d)",
+	},
+	{
+		"decimalSeconds",
+		"seconds",
+		"secondsOnly",
+		"clock",
+		"minutes",
+		"hours",
+		"days",
+	},
+}
+
+Constants.CooldownTimer.DisplayStyleSettings = {
+	decimalSeconds = {
+		step = 0.1,
+		rounding = Enum.NumericRuleFormatRounding.Up,
+		format = "%.1f",
+	},
+	seconds = {
+		step = 1,
+		rounding = Enum.NumericRuleFormatRounding.Up,
+		format = "%ds",
+	},
+	secondsOnly = {
+		step = 1,
+		rounding = Enum.NumericRuleFormatRounding.Up,
+		format = "%d",
+	},
+	clock = {
+		step = 1,
+		rounding = Enum.NumericRuleFormatRounding.Up,
+		format = "%d:%02d",
+	},
+	minutes = {
+		step = 1,
+		rounding = Enum.NumericRuleFormatRounding.Up,
+		format = "%dm",
+	},
+	hours = {
+		step = 1,
+		rounding = Enum.NumericRuleFormatRounding.Up,
+		format = "%dh",
+	},
+	days = {
+		step = 1,
+		rounding = Enum.NumericRuleFormatRounding.Up,
+		format = "%dd",
+	},
+}
+
+Constants.CooldownTimer.DefaultBreakpoints = {
+	{
+		threshold = 0,
+		displayStyle = "secondsOnly",
+		step = 1,
+		rounding = Enum.NumericRuleFormatRounding.Up,
+		format = "%d",
+	},
+	{
+		threshold = 60,
+		displayStyle = "clock",
+		step = 1,
+		rounding = Enum.NumericRuleFormatRounding.Up,
+		format = "%d:%02d",
+		components = {
+			{ div = 60 },
+			{ mod = 60 },
+		},
+	},
+	{
+		threshold = 120,
+		displayStyle = "minutes",
+		step = 1,
+		rounding = Enum.NumericRuleFormatRounding.Up,
+		format = "%dm",
+		components = {
+			{ div = 60 },
+		},
+	},
+}
+
 Constants.SourcePairs = {
 	[0] = 1,
 	[1] = 0,
@@ -193,11 +285,11 @@ Constants.SpecSecondaryPower = {
 		talentSegmentCount = 3,
 	},
 	[64] = {
-        resourceKind = "icicles",
-        powerToken = "ICICLES",
-        segmentCount = 5,
-        registerUnitAura = true,
-    },
+		resourceKind = "icicles",
+		powerToken = "ICICLES",
+		segmentCount = 5,
+		registerUnitAura = true,
+	},
 	[255] = {
 		resourceKind = "tipOfTheSpear",
 		powerToken = "TIP_OF_THE_SPEAR",
@@ -319,7 +411,6 @@ Constants.DruidSecondaryResourceByPowerType = {
 	},
 }
 
-
 Constants.SegmentTicksByPowerToken = {
 	ARCANE_CHARGES = true,
 	CHI = true,
@@ -414,14 +505,39 @@ Constants.Races = {
 }
 
 Constants.FakeAuras = {
+	-- WARLOCK
 	[265187] = 15, -- Summon Tyrant
 	[1288950] = 23, -- Grimoire: Fel Ravager
 	[104316] = 12, -- Call Dreadstalkers
 	[1276672] = 12, -- Summon Doomguard (not even Blizzard shows that)
+
+	-- PALADIN
 	[26573] = 12, -- Consecration
+
+	-- PRIEST
 	-- [373276] = 24, -- Idol of Yogg-Saron
 	[451234] = 6, -- Voidwrath
 	[34433] = 6, -- Shadowfiend
+
+	-- SHAMAN
+	[5394] = 15, -- Healing Stream Totem
+	[108280] = 10, -- Healing Tide Totem
+	[98008] = 6, -- Spirit Link Totem
+	[192077] = 7, -- Wind Rush Totem
+	[355580] = 6, -- Static Field Totem
+	[192058] = 2, -- Capacitor Totem
+	[2484] = 20, -- Earthbind Totem
+	[8143] = 10, -- Tremor Totem
+	[383013] = 6, -- Poison Cleansing Totem
+	[204336] = 3, -- Grounding Totem
+	[204331] = 15, -- Counterstrike Totem
+	[460697] = 15, -- Totem of Wrath
+	[51485] = 20, -- Earthgrab Totem
+	[198103] = 30, -- Earth Elemental
+	--[444995] = 25, -- Surging Totem
+
+	-- MONK
+	[322118] = 12, -- Invoke Yu'lon, the Jade Serpent
 }
 
 Constants.TargetAuras = {

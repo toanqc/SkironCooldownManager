@@ -123,6 +123,15 @@ function Icons.UpdateChildGlow(child, isInactive)
 			if child.SCMGlow then
 				SCM:StopCustomGlow(child)
 			end
+		elseif child.SCMConfig.glowWhileInactive then
+			if isInactive then
+				SCM:StartCustomGlow(child)
+				return
+			end
+
+			if child.SCMGlow then
+				SCM:StopCustomGlow(child)
+			end
 		end
 	end
 end
@@ -257,13 +266,13 @@ local function ProcessBuffIcon(child, childData, options)
 
 	local isInactive
 	if child.SCMCheckCooldownFrame then
-		isInactive = not child.Cooldown:IsShown()
+		isInactive = not child.Cooldown:IsVisible()
 	else
-		isInactive = (not child.auraInstanceID and (FindSpellOverrideByID(child.SCMSpellID) == child.SCMSpellID))
+		isInactive = not child.auraInstanceID
 	end
-
+	
 	local forceShow = SCM.simulateBuffs or (not SCM.isHideWhenInactiveEnabled and childData.alwaysShow)
-	local shouldHide = isInactive and not forceShow
+	local shouldHide = (childData.showWhileInactive and not isInactive) or (isInactive and not (forceShow or childData.showWhileInactive))
 
 	if shouldHide then
 		Icons.SetChildVisibilityState(child, false, true)
@@ -272,6 +281,7 @@ local function ProcessBuffIcon(child, childData, options)
 
 	Icons.SetChildVisibilityState(child, true, true)
 	Icons.UpdateChildDesaturation(child, isInactive)
+	Icons.UpdateChildGlow(child, isInactive)
 end
 
 local function ProcessRegularIcon(child, childData, options)

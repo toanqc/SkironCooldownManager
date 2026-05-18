@@ -323,7 +323,7 @@ local function CreateAddSpellDropdown(owner, rootDescription, scrollFrame, ancho
 	end
 
 	local function GetSortRank(info, data)
-		if data.category < 0 then
+		if type(data.category) == "number" and data.category < 0 then
 			return 4
 		end
 		if info.isKnown then
@@ -360,10 +360,10 @@ local function CreateAddSpellDropdown(owner, rootDescription, scrollFrame, ancho
 			if configID then
 				info.cooldownID = item.cooldownID
 				info.configID = configID
-				info.isDisabled = data.category < 0
+				info.isDisabled = type(data.category) == "number" and data.category < 0
 				info.category = data.category
 
-				local activeColor = (data.category < 0 and colorDisabled) or (info.isKnown and colorKnown) or colorUnknown
+				local activeColor = (type(data.category) == "number" and data.category < 0 and colorDisabled) or (info.isKnown and colorKnown) or colorUnknown
 				parentButton:CreateButton(string.format("|T%d:0|t |cff%s%s (%d)|r", C_Spell.GetSpellTexture(info.spellID), activeColor, C_Spell.GetSpellName(info.spellID), cooldownID), function(info)
 					if not SCM:IsSpellInData(info.cooldownID, info.category) and not DoesScrollFrameContainSpellConfig(scrollFrame, info.configID, info.cooldownID) then
 						local dataIndex = scrollFrame:AddSpellBySpellID(info)
@@ -385,7 +385,7 @@ local function CreateAddSpellDropdown(owner, rootDescription, scrollFrame, ancho
 			local info = C_CooldownViewer.GetCooldownViewerCooldownInfo(cooldownID)
 			local data = cooldownInfoByID[cooldownID]
 
-			if info and data and (data.category == 3 or data.category < 0) then
+			if info and data and type(data.category) == "number" and (data.category == 3 or data.category < 0) then
 				local spellID = GetSpellIDForCooldownInfo(info)
 				local configID = GetCooldownConfigKey(cooldownID)
 				info.spellID = spellID
@@ -401,7 +401,7 @@ local function CreateAddSpellDropdown(owner, rootDescription, scrollFrame, ancho
 			local info = C_CooldownViewer.GetCooldownViewerCooldownInfo(cooldownID)
 			local data = cooldownInfoByID[cooldownID]
 
-			if info and data and (data.category == 3 or data.category < 0) then
+			if info and data and type(data.category) == "number" and (data.category == 3 or data.category < 0) then
 				local spellID = GetSpellIDForCooldownInfo(info)
 				local configID = GetCooldownConfigKey(cooldownID)
 				info.spellID = spellID
@@ -477,7 +477,7 @@ local function CreateAddSpellDropdown(owner, rootDescription, scrollFrame, ancho
 			info.spellID = spellID
 
 			if configID and not SCM:IsSpellInData(cooldownID, data.category) and not DoesScrollFrameContainSpellConfig(scrollFrame, configID, cooldownID) then
-				table.insert(buffItems, { info = info, data = data, cooldownID = cooldownID, targetCategory = 2 })
+				table.insert(buffItems, { info = info, data = data, cooldownID = cooldownID, targetCategory = Enum.CooldownViewerCategory.TrackedBuff })
 			end
 		end
 	end
@@ -487,7 +487,7 @@ local function CreateAddSpellDropdown(owner, rootDescription, scrollFrame, ancho
 		local info = C_CooldownViewer.GetCooldownViewerCooldownInfo(cooldownID)
 		local data = cooldownInfoByID[cooldownID]
 
-		if info and data and data.category <= 3 then
+		if info and data and type(data.category) == "number" and data.category <= 3 then
 			local spellID = GetSpellIDForCooldownInfo(info)
 			local configID = GetCooldownConfigKey(cooldownID)
 			info.spellID = spellID
@@ -506,6 +506,46 @@ local function CreateAddSpellDropdown(owner, rootDescription, scrollFrame, ancho
 
 	local customButton = rootDescription:CreateButton("Custom")
 	CreateCustomIconButtons(customButton, scrollFrame, anchorIndex, false, customButtonConfigs)
+
+	if CreateCategoryObjectLookup and CooldownViewerSettingsDataProvider_GetCategories then
+		local copyFromButton = rootDescription:CreateButton("Copy From")
+		local lookup = CreateCategoryObjectLookup()
+
+		for _, sourceCategory in ipairs(CooldownViewerSettingsDataProvider_GetCategories()) do
+			local category = sourceCategory >= 0 and sourceCategory < 3 and lookup[sourceCategory]
+
+			if category then
+				copyFromButton:CreateButton(category.title, function()
+					local dataProvider = CooldownViewerSettings:GetDataProvider()
+					local displayData = dataProvider and dataProvider.displayData
+					if not displayData then
+						return
+					end
+
+					for _, cooldownID in ipairs(displayData.orderedCooldownIDs) do
+						local data = displayData.cooldownInfoByID[cooldownID]
+						local configID = data and data.category == sourceCategory and GetCooldownConfigKey(cooldownID)
+
+						if configID and not SCM:IsSpellInData(cooldownID, data.category) and not DoesScrollFrameContainSpellConfig(scrollFrame, configID, cooldownID) then
+							local info = C_CooldownViewer.GetCooldownViewerCooldownInfo(cooldownID)
+							if info then
+								info.spellID = GetSpellIDForCooldownInfo(info)
+								info.cooldownID = cooldownID
+								info.configID = configID
+								info.isDisabled = false
+								info.category = data.category
+
+								local dataIndex = scrollFrame:AddSpellBySpellID(info)
+								SCM:AddSpellToConfig(anchorIndex, dataIndex, info, data, sourceCategory)
+							end
+						end
+					end
+
+					ApplyModeConfigUpdate(anchorIndex, mode)
+				end)
+			end
+		end
+	end
 
 	for _, customEntry in pairs(SCM.CustomEntries) do
 		customEntry(rootDescription, scrollFrame, anchorIndex)
@@ -1308,6 +1348,18 @@ local function SelectAnchor(widget, parentWidget, anchorIndex, anchorTabsTbl, mo
 								end
 
 								if buttonFrame.data.isBuffIcon then
+									local showWhileInactive = AceGUI:Create("CheckBox")
+									showWhileInactive:SetLabel("Show While Inactive")
+									showWhileInactive:SetRelativeWidth(0.5)
+									showWhileInactive:SetValue(buttonConfig.showWhileInactive)
+									showWhileInactive:SetDisabled(not options.hideBuffsWhenInactive)
+									SCM.Utils.SetDisabledTooltip(showWhileInactive, "Enable 'Hide Inactive Auras' in Global Settings > General > Auras first.")
+									iconSettingsTabs:AddChild(showWhileInactive)
+									showWhileInactive:SetCallback("OnValueChanged", function(self, event, value)
+										buttonConfig.showWhileInactive = value or nil
+										ApplyIconConfigUpdate()
+									end)
+
 									local hideWhileMounted = AceGUI:Create("CheckBox")
 									hideWhileMounted:SetRelativeWidth(0.5)
 									hideWhileMounted:SetValue(buttonConfig.hideWhileMounted)
@@ -1362,6 +1414,16 @@ local function SelectAnchor(widget, parentWidget, anchorIndex, anchorTabsTbl, mo
 												ApplyIconConfigUpdate()
 											end)
 											iconSettingsTabs:AddChild(showCraftQuality)
+
+											local hideStackText = AceGUI:Create("CheckBox")
+											hideStackText:SetLabel("Hide Count")
+											hideStackText:SetRelativeWidth(0.5)
+											hideStackText:SetValue(buttonConfig.hideStackText)
+											hideStackText:SetCallback("OnValueChanged", function(self, event, value)
+												buttonConfig.hideStackText = value or nil
+												ApplyIconConfigUpdate()
+											end)
+											iconSettingsTabs:AddChild(hideStackText)
 										elseif buttonData.iconType == "spell" then
 											local showNotUsable = AceGUI:Create("CheckBox")
 											showNotUsable:SetLabel("Show Not Usable")
@@ -1598,6 +1660,18 @@ local function SelectAnchor(widget, parentWidget, anchorIndex, anchorTabsTbl, mo
 										ApplyIconConfigUpdate()
 									end)
 									iconSettingsTabs:AddChild(glowWhileActive)
+
+									local glowWhileInactive = AceGUI:Create("CheckBox")
+									glowWhileInactive:SetLabel("Glow While Inactive")
+									glowWhileInactive:SetRelativeWidth(0.5)
+									glowWhileInactive:SetValue(buttonConfig.glowWhileInactive)
+									glowWhileInactive:SetDisabled(not options.useCustomGlow)
+									SCM.Utils.SetDisabledTooltip(glowWhileInactive, "Enable 'Use Custom Glow' in Global Settings > Glow first.")
+									glowWhileInactive:SetCallback("OnValueChanged", function(self, event, value)
+										buttonConfig.glowWhileInactive = value or nil
+										ApplyIconConfigUpdate()
+									end)
+									iconSettingsTabs:AddChild(glowWhileInactive)
 								end
 							elseif group == "state" then
 								CreateStateDropdown(self, iconSettings, scrollFrame, options, buttonConfig)
