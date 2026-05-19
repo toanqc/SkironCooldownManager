@@ -222,16 +222,17 @@ function Cooldowns.OverwriteRegularChildCooldownBySpellID(spellID, overrideSpell
 	OverwriteViewerChildCooldown(UtilityCooldownViewer, spellID, cooldownInfo)
 end
 
-local function OnRegularCooldownChanged(self)
+local function OnRegularCooldownChanged(self, changeType)
 	local parent = self:GetParent()
 	if not (parent and parent.SCMConfig) or self.SCMSettingRegularSpellCooldown or self.SCMClearingGCD then
 		return
 	end
 
 	local options = SCM.db.profile.options
+
 	if options.disableRegularIconActiveSwipe and not parent.SCMConfig.forceActiveSwipe and self:GetUseAuraDisplayTime() then
 		Cooldowns.OverrideRegularAuraCooldown(self, parent, options)
-	elseif options.disableGCD then
+	elseif options.disableGCD or (changeType == "CLEAR" and Constants.FixBlizzardSpells[parent.SCMSpellID]) then
 		Cooldowns.SetNormalCooldown(self, parent)
 	elseif parent.Icon.SCMDesaturated and not self:GetUseAuraDisplayTime() then
 		parent.Icon.SCMDesaturated = nil
@@ -263,8 +264,12 @@ function Cooldowns.SetupCooldownHooks(child)
 		return
 	end
 
-	hooksecurefunc(child.Cooldown, "SetCooldown", OnRegularCooldownChanged)
-	hooksecurefunc(child.Cooldown, "Clear", OnRegularCooldownChanged)
+	hooksecurefunc(child.Cooldown, "SetCooldown", function(self)
+		OnRegularCooldownChanged(self, "SET")
+	end)
+	hooksecurefunc(child.Cooldown, "Clear", function(self)
+		OnRegularCooldownChanged(self, "CLEAR")
+	end)
 
 	child.Cooldown:HookScript("OnCooldownDone", function(self, ...)
 		local parent = self:GetParent()

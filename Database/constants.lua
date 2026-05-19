@@ -543,3 +543,10 @@ Constants.FakeAuras = {
 Constants.TargetAuras = {
 	[1160] = true,
 }
+
+-- Blizzard randomly clears those cooldowns and I have to fix it. Fun :)
+Constants.FixBlizzardSpells = {
+	[202137] = true,
+	[204596] = true,
+	[207684] = true,
+}
