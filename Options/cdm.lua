@@ -1457,6 +1457,16 @@ local function SelectAnchor(widget, parentWidget, anchorIndex, anchorTabsTbl, mo
 												ApplyIconConfigUpdate()
 											end)
 											iconSettingsTabs:AddChild(showOutOfRange)
+
+											local forceShowCharges = AceGUI:Create("CheckBox")
+											forceShowCharges:SetLabel("Force Show Charges")
+											forceShowCharges:SetRelativeWidth(0.5)
+											forceShowCharges:SetValue(buttonConfig.forceShowCharges)
+											forceShowCharges:SetCallback("OnValueChanged", function(self, event, value)
+												buttonConfig.forceShowCharges = value
+												ApplyIconConfigUpdate()
+											end)
+											iconSettingsTabs:AddChild(forceShowCharges)
 										end
 									else
 										local forceActiveSwipe = AceGUI:Create("CheckBox")

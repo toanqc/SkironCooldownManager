@@ -411,13 +411,38 @@ local function UpdateCustomIconCharges(frame, spellID)
 	end
 
 	local chargeInfo = C_Spell.GetSpellCharges(spellID)
-	if not chargeInfo then
+	if not chargeInfo and not frame.SCMConfig.forceShowCharges then
 		frame.ChargeCount.Current:Hide()
 		return
 	end
 
-	frame.ChargeCount.Current:SetText(C_Spell.GetSpellDisplayCount(spellID))
+	frame.ChargeCount.Current:SetText(C_StringUtil.TruncateWhenZero(chargeInfo and C_Spell.GetSpellDisplayCount(spellID) or C_Spell.GetSpellCastCount(spellID)))
 	frame.ChargeCount.Current:Show()
+end
+
+local function UpdateSpellUsesForEntries(entries)
+	if not entries then
+		return
+	end
+
+	for i = 1, #entries do
+		local entry = entries[i]
+		local frame = CustomSpellFrames[entry.id]
+		local updateCharges = frame and not frame.SCMReleased and frame.UpdateCharges
+		if updateCharges then
+			updateCharges(frame, entry.config.spellID)
+		end
+	end
+end
+
+function CustomIcons.UpdateSpellUses(spellID, baseSpellID)
+	local entriesBySpellID = Cache.cachedCustomSpellEntriesBySpellID
+
+	UpdateSpellUsesForEntries(entriesBySpellID[spellID])
+
+	if baseSpellID and baseSpellID ~= spellID then
+		UpdateSpellUsesForEntries(entriesBySpellID[baseSpellID])
+	end
 end
 
 local function DoesItemOrSpellExists(config)
@@ -573,7 +598,7 @@ local function UpdateCustomIconFrameState(frame, config)
 		local chargeInfo = C_Spell.GetSpellCharges(config.spellID)
 		UpdateCustomIconCharges(frame, config.spellID)
 
-		if chargeInfo then
+		if chargeInfo or frame.SCMConfig.forceShowCharges then
 			frame.UpdateCharges = UpdateCustomIconCharges
 		end
 	elseif iconType ~= "item" then

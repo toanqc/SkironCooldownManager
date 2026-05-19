@@ -166,6 +166,10 @@ function SCM:SPELL_UPDATE_CHARGES()
 	SCM:ApplyAnchorGroupByIconTypes(false, nil, "spell")
 end
 
+function SCM:SPELL_UPDATE_USES(spellID, baseSpellID)
+	SCM.CustomIcons.UpdateSpellUses(spellID, baseSpellID)
+end
+
 function SCM:PLAYER_EQUIPMENT_CHANGED()
 	SCM:CreateAllCustomIcons()
 	SCM:ApplyAllCDManagerConfigs()
@@ -309,6 +313,7 @@ EventUtil.ContinueOnAddOnLoaded(addonName, function()
 	eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 	eventFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 	eventFrame:RegisterEvent("SPELL_UPDATE_CHARGES")
+	eventFrame:RegisterEvent("SPELL_UPDATE_USES")
 	eventFrame:RegisterEvent("SPELL_UPDATE_USABLE")
 	eventFrame:RegisterEvent("SPELL_RANGE_CHECK_UPDATE")
 	eventFrame:RegisterEvent("COOLDOWN_VIEWER_SPELL_OVERRIDE_UPDATED")
