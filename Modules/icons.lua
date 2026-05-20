@@ -330,9 +330,9 @@ local function ProcessSingleChild(child, validChildren, categoryIndex, isBuffIco
 
 	local configID, childData = GetSpellConfigByCooldownID(SCM.spellConfig, cooldownID)
 	if not (cooldownID and spellID and childData) then
-		if child.SCMShouldBeVisible and child.SCMSpellID then
-			print("HIDE", cooldownID, child.SCMSpellID, C_Spell.GetSpellName(child.SCMSpellID))
-		end
+		-- if child.SCMShouldBeVisible and child.SCMSpellID then
+		-- 	print("HIDE", cooldownID, child.SCMSpellID, C_Spell.GetSpellName(child.SCMSpellID))
+		-- end
 
 		if activeScopedAnchorGroups and oldGroup then
 			activeScopedAnchorGroups[oldGroup] = true
@@ -346,9 +346,9 @@ local function ProcessSingleChild(child, validChildren, categoryIndex, isBuffIco
 	local group = GetConfiguredGroupForCategory(childData, categoryIndex)
 	local groupConfig = childData.anchorGroup and childData.anchorGroup[group]
 	if not (group and groupConfig) then
-		if child.SCMShouldBeVisible and child.SCMSpellID then
-			print("HIDE", cooldownID, child.SCMSpellID, C_Spell.GetSpellName(child.SCMSpellID))
-		end
+		-- if child.SCMShouldBeVisible and child.SCMSpellID then
+		-- 	print("HIDE", cooldownID, child.SCMSpellID, C_Spell.GetSpellName(child.SCMSpellID))
+		-- end
 
 		if activeScopedAnchorGroups and oldGroup then
 			activeScopedAnchorGroups[oldGroup] = true
