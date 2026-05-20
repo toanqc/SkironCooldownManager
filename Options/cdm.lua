@@ -1295,7 +1295,6 @@ local function SelectAnchor(widget, parentWidget, anchorIndex, anchorTabsTbl, mo
 					local buttonConfig = buttonData.isCustom and SCM:GetConfigTableByID(buttonData.id, buttonData.iconType, isGlobal) or SCM:GetSpellConfigForGroup(buttonData.id, currentAnchorIndex)
 					if not buttonConfig then
 						lastButtonFrame = nil
-						SCM:Debug("Missing icon config for anchor selection", buttonData.id or "unknown", currentAnchorIndex or "unknown", buttonData.cooldownID or "unknown")
 						ShowIconSettingsMessage("|TInterface\\common\\help-i:40:40:0:0|tThis icon could not be resolved for the current anchor.")
 						return
 					end

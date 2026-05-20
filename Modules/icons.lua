@@ -22,7 +22,6 @@ local function ApplyHideChildNow(child)
 	UIParent.SetAlpha(child, 0)
 	child:EnableMouse(false)
 	child:SetScript("OnEnter", nil)
-	SCM:Debug("HIDE", GetTime(), child.SCMSpellID or "unknown", child.SCMCooldownID or "unknown")
 
 	if not child.SCMAlphaHook then
 		child.SCMAlphaHook = true
@@ -46,7 +45,6 @@ function Icons.HideChild(child)
 		if child.SCMHideTimer then
 			return
 		end
-		SCM:Debug("Start Timer", child.SCMSpellID)
 
 		child.SCMHideTimer = C_Timer.NewTimer(delayedHideSeconds, function()
 			DelayedHideChildCallback(child)
@@ -59,7 +57,6 @@ end
 
 local function CancelChildHideTimer(child)
 	if child.SCMHideTimer then
-		SCM:Debug("Cancel Timer", child.SCMSpellID)
 		child.SCMHideTimer:Cancel()
 		child.SCMHideTimer = nil
 	end
@@ -76,7 +73,6 @@ function Icons.ShowChild(child)
 		child.SCMHidden = false
 		UIParent.SetAlpha(child, 1)
 		child:EnableMouse(true)
-		SCM:Debug("SHOW", GetTime(), child.SCMSpellID or "unknown", child.SCMCooldownID or "unknown")
 	end
 end
 
@@ -270,7 +266,7 @@ local function ProcessBuffIcon(child, childData, options)
 	else
 		isInactive = not child.auraInstanceID
 	end
-	
+
 	local forceShow = SCM.simulateBuffs or (not SCM.isHideWhenInactiveEnabled and childData.alwaysShow)
 	local shouldHide = (childData.showWhileInactive and not isInactive) or (isInactive and not (forceShow or childData.showWhileInactive))
 
@@ -330,10 +326,6 @@ local function ProcessSingleChild(child, validChildren, categoryIndex, isBuffIco
 
 	local configID, childData = GetSpellConfigByCooldownID(SCM.spellConfig, cooldownID)
 	if not (cooldownID and spellID and childData) then
-		-- if child.SCMShouldBeVisible and child.SCMSpellID then
-		-- 	print("HIDE", cooldownID, child.SCMSpellID, C_Spell.GetSpellName(child.SCMSpellID))
-		-- end
-
 		if activeScopedAnchorGroups and oldGroup then
 			activeScopedAnchorGroups[oldGroup] = true
 		end
@@ -346,10 +338,6 @@ local function ProcessSingleChild(child, validChildren, categoryIndex, isBuffIco
 	local group = GetConfiguredGroupForCategory(childData, categoryIndex)
 	local groupConfig = childData.anchorGroup and childData.anchorGroup[group]
 	if not (group and groupConfig) then
-		-- if child.SCMShouldBeVisible and child.SCMSpellID then
-		-- 	print("HIDE", cooldownID, child.SCMSpellID, C_Spell.GetSpellName(child.SCMSpellID))
-		-- end
-
 		if activeScopedAnchorGroups and oldGroup then
 			activeScopedAnchorGroups[oldGroup] = true
 		end
