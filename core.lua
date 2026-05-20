@@ -143,11 +143,40 @@ function SCM:UNIT_SPELLCAST_SUCCEEDED(_, _, spellID)
 	SCM:ApplySuccessfulCastBySpellID(spellID)
 end
 
-function SCM:SPELL_UPDATE_COOLDOWN(spellID)
-	local predicate = function(config)
-		return config.spellID == spellID or config.iconType == "item"
+local isSpellCooldownUpdateThrottled = false
+local pendingSpellCooldownIDs = {}
+
+local function PendingSpellCooldownPredicate(config)
+	return pendingSpellCooldownIDs[config.spellID]
+end
+
+local function OnSpellCooldownUpdateThrottleTick()
+	if not next(pendingSpellCooldownIDs) then
+		isSpellCooldownUpdateThrottled = false
+		return
 	end
 
+	isSpellCooldownUpdateThrottled = true
+	C_Timer.After(0.1, OnSpellCooldownUpdateThrottleTick)
+	SCM:ApplyAnchorGroupByIconTypes(false, PendingSpellCooldownPredicate, "spell", "item", "slot")
+	SCM:UpdateCustomIconsGCD()
+	wipe(pendingSpellCooldownIDs)
+end
+
+function SCM:SPELL_UPDATE_COOLDOWN(spellID)
+	if not spellID then return end
+
+	if isSpellCooldownUpdateThrottled then
+		pendingSpellCooldownIDs[spellID] = true
+		return
+	end
+
+	local predicate = function(config)
+		return config.spellID == spellID
+	end
+
+	isSpellCooldownUpdateThrottled = true
+	C_Timer.After(0.1, OnSpellCooldownUpdateThrottleTick)
 	SCM:ApplyAnchorGroupByIconTypes(false, predicate, "spell", "item", "slot")
 	SCM:UpdateCustomIconsGCD()
 end
@@ -169,14 +198,14 @@ function SCM:SPELL_UPDATE_USES(spellID, baseSpellID)
 end
 
 function SCM:PLAYER_EQUIPMENT_CHANGED()
-	SCM:CreateAllCustomIcons()
-	SCM:ApplyAllCDManagerConfigs()
+	SCM:CreateAllCustomIcons("slot")
+	SCM:ApplyAnchorGroupByIconType("slot")
 end
 
 function SCM:PLAYER_EQUIPED_SPELLS_CHANGED()
 	C_Timer.After(0.1, function()
 		SCM:CreateAllCustomIcons("slot")
-		SCM:ApplyAllCDManagerConfigs()
+		SCM:ApplyAnchorGroupByIconType("slot")
 	end)
 
 	eventFrame:UnregisterEvent("PLAYER_EQUIPED_SPELLS_CHANGED")

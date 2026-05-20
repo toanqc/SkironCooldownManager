@@ -142,7 +142,7 @@ local function OnShow(child)
 			child.SCMFakeAuraInstanceID = true
 		end
 
-		SCM:ApplyAnchorGroupCDManagerConfig(child.SCMGroup)
+		SCM:ApplyAnchorGroupCDManagerConfig(child.SCMGroup, child.SCMGlobal, child.viewerFrame and child.viewerFrame.SCMUpdateScope)
 	end
 end
 
@@ -152,7 +152,7 @@ local function OnHide(child)
 			child.SCMFakeAuraInstanceID = nil
 		end
 
-		SCM:ApplyAnchorGroupCDManagerConfig(child.SCMGroup)
+		SCM:ApplyAnchorGroupCDManagerConfig(child.SCMGroup, child.SCMGlobal, child.viewerFrame and child.viewerFrame.SCMUpdateScope)
 	end
 end
 
@@ -446,6 +446,7 @@ function Icons.ProcessChildren(viewer, validChildren, viewerData)
 	local children = GetOrCacheChildren(viewer, viewerData.isBuffIcon or viewerData.isBuffBar)
 	local categoryIndex = SCM.CooldownViewerNameToIndex[viewer:GetName()]
 	local options = SCM.db.profile.options
+	viewer.SCMUpdateScope = viewerData.updateScope
 
 	if viewerData.isBuffBar then
 		for _, child in ipairs(children) do

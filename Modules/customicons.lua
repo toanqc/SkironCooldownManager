@@ -89,7 +89,7 @@ local function OnIconCooldownDone(self)
 	end
 
 	if parent and parent.SCMGroup then
-		SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup, parent.SCMGlobal)
+		SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup, parent.SCMGlobal, CDM.UPDATE_SCOPE.ESSENTIAL_UTILITY)
 	end
 end
 

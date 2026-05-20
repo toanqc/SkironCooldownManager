@@ -16,6 +16,7 @@ local UPDATE_SCOPE = {
 	ALL = "all",
 	ESSENTIAL = "essential",
 	UTILITY = "utility",
+	ESSENTIAL_UTILITY = "essentialUtility",
 	BUFF = "buff",
 	BUFF_BAR = "buffBar",
 }
@@ -24,18 +25,22 @@ CDM.UPDATE_SCOPE = UPDATE_SCOPE
 local VIEWER_UPDATE_MAPPING = {
 	[UPDATE_SCOPE.ESSENTIAL] = {
 		frameName = "EssentialCooldownViewer",
+		updateScope = UPDATE_SCOPE.ESSENTIAL,
 		isBuffIcon = false,
 	},
 	[UPDATE_SCOPE.UTILITY] = {
 		frameName = "UtilityCooldownViewer",
+		updateScope = UPDATE_SCOPE.UTILITY,
 		isBuffIcon = false,
 	},
 	[UPDATE_SCOPE.BUFF] = {
 		frameName = "BuffIconCooldownViewer",
+		updateScope = UPDATE_SCOPE.BUFF,
 		isBuffIcon = true,
 	},
 	[UPDATE_SCOPE.BUFF_BAR] = {
 		frameName = "BuffBarCooldownViewer",
+		updateScope = UPDATE_SCOPE.BUFF_BAR,
 		isBuffBar = true,
 	},
 }
@@ -99,6 +104,20 @@ local function AddChildToScopedGroup(validChildren, group, child, isGlobal)
 	end
 end
 CDM.AddChildToScopedGroup = AddChildToScopedGroup
+
+local function CollectScopedAnchorGroups(updateScope, config)
+	if updateScope ~= UPDATE_SCOPE.ESSENTIAL_UTILITY then
+		return Icons.CollectScopedAnchorGroups(updateScope, config, VIEWER_UPDATE_MAPPING)
+	end
+
+	local targetGroups = Icons.CollectScopedAnchorGroups(UPDATE_SCOPE.ESSENTIAL, config, VIEWER_UPDATE_MAPPING)
+
+	for group in pairs(Icons.CollectScopedAnchorGroups(UPDATE_SCOPE.UTILITY, config, VIEWER_UPDATE_MAPPING)) do
+		targetGroups[group] = true
+	end
+
+	return targetGroups
+end
 
 local function GetAnchorState(group)
 	local state = Cache.cachedAnchorStates[group]
@@ -245,12 +264,7 @@ local function LayoutAnchorGroup(group, visibleChildren, anchorConfig, options, 
 	totalChildren = layoutChildCount
 	layoutSignature = layoutSignature + (configuredChildCount * 31) + (layoutChildCount * 131)
 
-	if allowLayoutSkip
-		and not checkDuplicates
-		and not resetSize
-		and not SCM.isOptionsOpen
-		and state.layoutSignature == layoutSignature
-	then
+	if allowLayoutSkip and not checkDuplicates and not resetSize and not SCM.isOptionsOpen and state.layoutSignature == layoutSignature then
 		return
 	end
 
@@ -568,6 +582,24 @@ local function UpdateAnchorChain(changedGroups, config)
 	SCM:ReleaseScopedGroupCache(visitedGroups)
 end
 
+local function MergeUpdateScope(currentScope, newScope)
+	if not currentScope or currentScope == newScope then
+		return newScope
+	end
+
+	if currentScope == UPDATE_SCOPE.ALL or newScope == UPDATE_SCOPE.ALL then
+		return UPDATE_SCOPE.ALL
+	end
+
+	local currentIsEssentialUtility = currentScope == UPDATE_SCOPE.ESSENTIAL or currentScope == UPDATE_SCOPE.UTILITY or currentScope == UPDATE_SCOPE.ESSENTIAL_UTILITY
+	local newIsEssentialUtility = newScope == UPDATE_SCOPE.ESSENTIAL or newScope == UPDATE_SCOPE.UTILITY or newScope == UPDATE_SCOPE.ESSENTIAL_UTILITY
+	if currentIsEssentialUtility and newIsEssentialUtility then
+		return UPDATE_SCOPE.ESSENTIAL_UTILITY
+	end
+
+	return UPDATE_SCOPE.ALL
+end
+
 local function OrderCDManagerSpells_Actual(updateScope, scopedAnchorGroupsOverride)
 	Cache.cachedViewerScale = 1
 
@@ -579,7 +611,7 @@ local function OrderCDManagerSpells_Actual(updateScope, scopedAnchorGroupsOverri
 	local isFullBuffBarUpdate = updateScope == UPDATE_SCOPE.BUFF_BAR and not scopedAnchorGroupsOverride
 	local scopedAnchorGroups = scopedAnchorGroupsOverride
 	if not scopedAnchorGroups and not isFullBuffBarUpdate then
-		scopedAnchorGroups = Icons.CollectScopedAnchorGroups(updateScope, config, VIEWER_UPDATE_MAPPING)
+		scopedAnchorGroups = CollectScopedAnchorGroups(updateScope, config)
 	end
 	local options = SCM.db.profile.options
 	local changedGroups = SCM:AcquireScopedGroupCache()
@@ -619,7 +651,16 @@ local function OrderCDManagerSpells_Actual(updateScope, scopedAnchorGroupsOverri
 
 	local allowLayoutSkip = scopedAnchorGroups and updateScope ~= UPDATE_SCOPE.BUFF_BAR
 	for group, visibleChildren in pairs(Cache.cachedCooldownFrameTbl) do
-		LayoutAnchorGroup(group, visibleChildren, Utils.GetAnchorConfigForGroup(config, group, SCM.globalAnchorConfig, SCM.buffBarsAnchorConfig), options, changedGroups, nil, updateScope == UPDATE_SCOPE.BUFF, allowLayoutSkip)
+		LayoutAnchorGroup(
+			group,
+			visibleChildren,
+			Utils.GetAnchorConfigForGroup(config, group, SCM.globalAnchorConfig, SCM.buffBarsAnchorConfig),
+			options,
+			changedGroups,
+			nil,
+			updateScope == UPDATE_SCOPE.BUFF,
+			allowLayoutSkip
+		)
 	end
 
 	if not isFullBuffBarUpdate then
@@ -681,50 +722,33 @@ end
 CDM.OrderSpellsActual = OrderCDManagerSpells_Actual
 
 local isThrottled = false
-local pendingUpdateScopes = {}
-
-local function QueuePendingUpdateScope(updateScope)
-	if updateScope == UPDATE_SCOPE.ALL then
-		wipe(pendingUpdateScopes)
-		pendingUpdateScopes[UPDATE_SCOPE.ALL] = true
-		return
-	end
-
-	if not pendingUpdateScopes[UPDATE_SCOPE.ALL] then
-		pendingUpdateScopes[updateScope] = true
-	end
-end
+local pendingUpdateScope
 
 local function OnOrderThrottleTick()
 	isThrottled = false
-	if pendingUpdateScopes[UPDATE_SCOPE.ALL] then
-		OrderCDManagerSpells_Actual(UPDATE_SCOPE.ALL)
-	elseif next(pendingUpdateScopes) then
-		if pendingUpdateScopes[UPDATE_SCOPE.ESSENTIAL] then
-			OrderCDManagerSpells_Actual(UPDATE_SCOPE.ESSENTIAL)
-		end
-		if pendingUpdateScopes[UPDATE_SCOPE.UTILITY] then
-			OrderCDManagerSpells_Actual(UPDATE_SCOPE.UTILITY)
-		end
+	if pendingUpdateScope then
+		local updateScope = pendingUpdateScope
+		pendingUpdateScope = nil
+		OrderCDManagerSpells_Actual(updateScope)
 	end
-	wipe(pendingUpdateScopes)
 end
 
 local function OrderCDManagerSpells(updateScope, applyNow)
 	updateScope = updateScope or UPDATE_SCOPE.ALL
+
 	if updateScope == UPDATE_SCOPE.BUFF or updateScope == UPDATE_SCOPE.BUFF_BAR or applyNow then
 		if applyNow or updateScope == UPDATE_SCOPE.ALL then
-			wipe(pendingUpdateScopes)
+			pendingUpdateScope = nil
 		end
 		OrderCDManagerSpells_Actual(updateScope)
 		return
 	end
 	if isThrottled then
-		QueuePendingUpdateScope(updateScope)
+		pendingUpdateScope = MergeUpdateScope(pendingUpdateScope, updateScope)
 		return
 	end
 
-	QueuePendingUpdateScope(updateScope)
+	pendingUpdateScope = updateScope
 	isThrottled = true
 	C_Timer.After(0.1, OnOrderThrottleTick)
 end

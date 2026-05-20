@@ -8,6 +8,13 @@ local Constants = SCM.Constants
 local NumericRuleFormatter = C_StringUtil.CreateNumericRuleFormatter()
 Cooldowns.NumericRuleFormatter = NumericRuleFormatter
 
+function Cooldowns.ApplyNumericRuleFormatter(cooldownFrame)
+	if cooldownFrame and cooldownFrame.SetCountdownFormatter and not cooldownFrame.SCMFormatter then
+		cooldownFrame.SCMFormatter = true
+		cooldownFrame:SetCountdownFormatter(NumericRuleFormatter)
+	end
+end
+
 function Cooldowns:ApplyFormatterSettings()
 	local options = SCM.db.profile.options
 
@@ -30,13 +37,13 @@ local function OnBuffCooldownSet(self)
 
 		if parent.SCMConfig.showWhileInactive then
 			Icons.HideChild(parent)
-			SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup)
+			SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup, nil, parent.viewerFrame and parent.viewerFrame.SCMUpdateScope)
 		end
 	elseif parent.SCMHidden then
 		Icons.ShowChild(parent)
 		Icons.UpdateChildDesaturation(parent, false)
 		Icons.UpdateChildGlow(parent, false)
-		SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup)
+		SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup, nil, parent.viewerFrame and parent.viewerFrame.SCMUpdateScope)
 	end
 end
 
@@ -63,7 +70,7 @@ local function OnBuffCooldownEnd(self)
 
 	--local options = parent.SCMBuffOptions
 	if not parent.SCMHidden or (parent.SCMHidden and parent.SCMConfig.showWhileInactive) then
-		SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup)
+		SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup, nil, parent.viewerFrame and parent.viewerFrame.SCMUpdateScope)
 	end
 end
 
@@ -247,6 +254,8 @@ local function OnRegularCooldownChanged(self, changeType)
 				elseif viewer == UtilityCooldownViewer then
 					SCM:ApplyUtilityCDManagerConfig()
 				end
+			elseif parent.SCMGroup then
+				SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup, parent.SCMGlobal)
 			else
 				SCM:ApplyAllCDManagerConfigs()
 			end
