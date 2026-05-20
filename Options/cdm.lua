@@ -1333,7 +1333,7 @@ local function SelectAnchor(widget, parentWidget, anchorIndex, anchorTabsTbl, mo
 									alwaysShow:SetLabel("Show Always")
 									alwaysShow:SetRelativeWidth(0.5)
 									alwaysShow:SetValue(buttonConfig.alwaysShow)
-									alwaysShow:SetDisabled(not options.hideBuffsWhenInactive or buttonConfig.showWhileInactive)
+									alwaysShow:SetDisabled((not buttonData.isCustom and not options.hideBuffsWhenInactive) or buttonConfig.showWhileInactive)
 									SCM.Utils.SetDisabledTooltip(alwaysShow, "Enable \"Disable 'Hide Inactive Auras'\" in Global Settings > General > Auras first or disable 'Show While Inactive'.")
 									iconSettingsTabs:AddChild(alwaysShow)
 									alwaysShow:SetCallback("OnValueChanged", function(self, event, value)
