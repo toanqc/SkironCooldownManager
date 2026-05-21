@@ -231,6 +231,30 @@ local function UpdateStatusBarLook(fillColor, bgColor)
 	castBar.SpellNameText:SetShown(spellName.enable)
 	castBar.CastDurationText:SetShown(castDuration.enable)
 
+	local sparkOptions = options.spark
+	if sparkOptions.enable then
+		castBar.Spark:ClearAllPoints()
+		castBar.Spark:SetPoint("LEFT", castBar.Status:GetStatusBarTexture(), "RIGHT", sparkOptions.xOffset, sparkOptions.yOffset)
+		castBar.Spark:SetSize(sparkOptions.width, sparkOptions.height)
+		castBar.Spark:SetBlendMode(sparkOptions.blendMode)
+
+		if sparkOptions.texture:find("\\") then
+			castBar.Spark:SetTexture(sparkOptions.texture)
+		else
+			local texturePath = LSM:Fetch("statusbar", sparkOptions.texture)
+			if texturePath then
+				castBar.Spark:SetTexture(texturePath)
+			end
+		end
+
+		local color = sparkOptions.color
+		castBar.Spark:SetVertexColor(color.r, color.g, color.b, color.a)
+
+		castBar.Spark:Show()
+	elseif castBar.Spark:IsShown() then
+		castBar.Spark:Hide()
+	end
+
 	if castBar:IsShown() and castBar.CurrentChannelTickCount then
 		local tickOptions = options.ticks
 		local color = tickOptions.color
@@ -296,26 +320,26 @@ local function HandleCast(durationObject, castType, empoweredStages, isChannelSt
 		spellName, _, spellTexture, _, _, _, notInterruptible, spellID = UnitChannelInfo("player")
 	end
 
-    if notInterruptible then
-        fillColor = options.interruptColor
-    else
-        if options.useClassColor then
-            local _, class = UnitClass("player")
-            local color = (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS)[class]
-            fillColor = { r = color.r, g = color.g, b = color.b, a = options.fgColor.a }
-        else
-            fillColor = options.fgColor
-        end
-    end
+	if notInterruptible then
+		fillColor = options.interruptColor
+	else
+		if options.useClassColor then
+			local _, class = UnitClass("player")
+			local color = (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS)[class]
+			fillColor = { r = color.r, g = color.g, b = color.b, a = options.fgColor.a }
+		else
+			fillColor = options.fgColor
+		end
+	end
 
-    local totalDuration = durationObject:GetTotalDuration()
-    if not totalDuration or totalDuration <= 0 then
-        return
-    end
+	local totalDuration = durationObject:GetTotalDuration()
+	if not totalDuration or totalDuration <= 0 then
+		return
+	end
 
-    castBar.CurrentFillColor = fillColor
-    UpdateStatusBarLook(fillColor)
-	
+	castBar.CurrentFillColor = fillColor
+	UpdateStatusBarLook(fillColor)
+
 	castBar.CurrentEmpoweredStages = empoweredStages
 	UpdateIconTexture(spellTexture)
 
@@ -505,6 +529,8 @@ function SCM:CreateCastBar()
 
 	castBar.SpellNameText = castBar.Status:CreateFontString(nil, "OVERLAY")
 	castBar.CastDurationText = castBar.Status:CreateFontString(nil, "OVERLAY")
+
+	castBar.Spark = castBar:CreateTexture(nil, "OVERLAY", nil, 2)
 
 	self.CastBar = castBar
 	self:UpdateCastBar()

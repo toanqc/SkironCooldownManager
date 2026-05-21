@@ -375,6 +375,17 @@ SCM.DefaultDB = {
 					width = 2,
 					color = { r = 1, g = 1, b = 1, a = 1 },
 				},
+				spark = {
+					enable = false,
+					width = 2,
+					height = 24,
+					color = { r = 1, g = 1, b = 1, a = 1 },
+					texture = "Solid",
+					xOffset = 0,
+					yOffset = 0,
+					useCustomTexture = false,
+					blendMode = "ADD"
+				},
 				spellName = {
 					enable = true,
 					anchors = { "LEFT", "LEFT", 3, 0 },

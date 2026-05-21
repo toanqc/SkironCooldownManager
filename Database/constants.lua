@@ -83,6 +83,20 @@ Constants.TextOutlineSorted = {
 	"THICKOUTLINE",
 }
 
+Constants.BlendMode = {
+	["DISABLE"] = "DISABLE",
+	["BLEND"] = "BLEND",
+	["ADD"] = "ADD",
+	["MOD"] = "MOD",
+}
+
+Constants.BlendModeSorted = {
+	"DISABLE",
+	"BLEND",
+	"ADD",
+	"MOD"
+}
+
 Constants.ResourceBarGrowthDirection = {
 	UP = "Up",
 	DOWN = "Down",

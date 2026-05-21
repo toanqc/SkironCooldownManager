@@ -259,6 +259,7 @@ local function CastBar(self)
 	local options = SCM.castBarConfig
 	local iconOptions = options.icon
 	local tickOptions = options.ticks
+	local sparkOptions = options.spark
 
 	local generalGroup = AceGUI:Create("InlineGroup")
 	generalGroup:SetTitle("General")
@@ -475,6 +476,123 @@ local function CastBar(self)
 		RefreshCastBar()
 	end)
 	tickGroup:AddChild(tickWidth)
+
+	local sparkGroup = AceGUI:Create("InlineGroup")
+	sparkGroup:SetTitle("Spark")
+	sparkGroup:SetFullWidth(true)
+	sparkGroup:SetLayout("flow")
+	scrollFrame:AddChild(sparkGroup)
+
+	local sparkEnable = AceGUI:Create("CheckBox")
+	sparkEnable:SetRelativeWidth(0.33)
+	sparkEnable:SetLabel("Show Spark")
+	sparkEnable:SetValue(sparkOptions.enable)
+	sparkEnable:SetCallback("OnValueChanged", function(_, _, value)
+		sparkOptions.enable = value
+		RefreshCastBar()
+	end)
+	sparkGroup:AddChild(sparkEnable)
+
+	local sparkColor = AceGUI:Create("ColorPicker")
+	sparkColor:SetRelativeWidth(0.33)
+	sparkColor:SetLabel("Spark Color")
+	sparkColor:SetHasAlpha(true)
+	sparkColor:SetColor(sparkOptions.color.r, sparkOptions.color.g, sparkOptions.color.b, sparkOptions.color.a)
+	sparkColor:SetCallback("OnValueChanged", function(_, _, r, g, b, a)
+		sparkOptions.color = { r = r, g = g, b = b, a = a }
+		RefreshCastBar()
+	end)
+	sparkGroup:AddChild(sparkColor)
+
+	local blendMode = AceGUI:Create("Dropdown")
+	blendMode:SetRelativeWidth(0.33)
+	blendMode:SetList(SCM.Constants.BlendMode, SCM.Constants.BlendModeSorted)
+	blendMode:SetLabel("Blend Mode")
+	blendMode:SetValue(sparkOptions.blendMode)
+	blendMode:SetCallback("OnValueChanged", function(self, event, value)
+		sparkOptions.frameStrata = value
+		RefreshCastBar()
+	end)
+	sparkGroup:AddChild(blendMode)
+
+	local sparkWidth = AceGUI:Create("Slider")
+	sparkWidth:SetRelativeWidth(0.25)
+	sparkWidth:SetLabel("Spark Width")
+	sparkWidth:SetSliderValues(1, 50, 0.1)
+	sparkWidth:SetValue(sparkOptions.width)
+	sparkWidth:SetCallback("OnValueChanged", function(_, _, value)
+		sparkOptions.width = value
+		RefreshCastBar()
+	end)
+	sparkGroup:AddChild(sparkWidth)
+
+	local sparkHeight = AceGUI:Create("Slider")
+	sparkHeight:SetRelativeWidth(0.25)
+	sparkHeight:SetLabel("Spark Height")
+	sparkHeight:SetSliderValues(1, 80, 0.1)
+	sparkHeight:SetValue(sparkOptions.height)
+	sparkHeight:SetCallback("OnValueChanged", function(_, _, value)
+		sparkOptions.height = value
+		RefreshCastBar()
+	end)
+	sparkGroup:AddChild(sparkHeight)
+
+	local sparkXOffset = AceGUI:Create("Slider")
+	sparkXOffset:SetRelativeWidth(0.25)
+	sparkXOffset:SetLabel("Spark X-Offset")
+	sparkXOffset:SetSliderValues(-20, 20, 0.1)
+	sparkXOffset:SetValue(sparkOptions.xOffset)
+	sparkXOffset:SetCallback("OnValueChanged", function(_, _, value)
+		sparkOptions.xOffset = value
+		RefreshCastBar()
+	end)
+	sparkGroup:AddChild(sparkXOffset)
+
+	local sparkYOffset = AceGUI:Create("Slider")
+	sparkYOffset:SetRelativeWidth(0.25)
+	sparkYOffset:SetLabel("Spark Y-Offset")
+	sparkYOffset:SetSliderValues(-20, 20, 0.1)
+	sparkYOffset:SetValue(sparkOptions.yOffset)
+	sparkYOffset:SetCallback("OnValueChanged", function(_, _, value)
+		sparkOptions.yOffset = value
+		RefreshCastBar()
+	end)
+	sparkGroup:AddChild(sparkYOffset)
+
+	local useCustomTexture = AceGUI:Create("CheckBox")
+	useCustomTexture:SetRelativeWidth(0.33)
+	useCustomTexture:SetLabel("Use Custom Texture")
+	useCustomTexture:SetValue(sparkOptions.useCustomTexture)
+
+	sparkGroup:AddChild(useCustomTexture)
+
+	local customTexture = AceGUI:Create("EditBox")
+	customTexture:SetRelativeWidth(0.66)
+	customTexture:SetLabel("Custom Texture")
+	customTexture:SetText(sparkOptions.texture or "")
+	customTexture:SetDisabled(not sparkOptions.useCustomTexture)
+	customTexture:SetCallback("OnEnter", function()
+		GameTooltip:SetOwner(self.frame, "ANCHOR_CURSOR")
+		GameTooltip:SetText("Custom Texture", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("Supports LibSharedMedia names and interface paths.", 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	customTexture:SetCallback("OnLeave", function()
+		GameTooltip:Hide()
+	end)
+	customTexture:SetCallback("OnEnterPressed", function(self, _, text)
+		sparkOptions.texture = text
+		self:SetText(sparkOptions.texture)
+		RefreshCastBar()
+	end)
+
+	useCustomTexture:SetCallback("OnValueChanged", function(_, _, value)
+		sparkOptions.useCustomTexture = value
+
+		customTexture:SetDisabled(not value)
+		RefreshCastBar()
+	end)
+	sparkGroup:AddChild(customTexture)
 
 	local colorGroup = AceGUI:Create("InlineGroup")
 	colorGroup:SetTitle("Colors")
