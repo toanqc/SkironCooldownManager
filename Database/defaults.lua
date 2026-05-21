@@ -378,7 +378,7 @@ SCM.DefaultDB = {
 				spark = {
 					enable = false,
 					width = 2,
-					height = 24,
+					height = 22,
 					color = { r = 1, g = 1, b = 1, a = 1 },
 					texture = "Solid",
 					xOffset = 0,

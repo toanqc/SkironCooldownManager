@@ -338,7 +338,7 @@ local function HandleCast(durationObject, castType, empoweredStages, isChannelSt
 	end
 
 	castBar.CurrentFillColor = fillColor
-	UpdateStatusBarLook(fillColor)
+	castBar.Status:SetStatusBarColor(fillColor.r or 1, fillColor.g or 1, fillColor.b or 1, fillColor.a or 1)
 
 	castBar.CurrentEmpoweredStages = empoweredStages
 	UpdateIconTexture(spellTexture)
@@ -433,7 +433,6 @@ local function HandleCast(durationObject, castType, empoweredStages, isChannelSt
 
 	castBar.SpellNameText:SetText(spellName or "")
 	castBar.SpellNameText:SetWidth(max(castBar.SpellNameText:GetStringWidth(), 1))
-	ApplyRelativeAnchor(castBar.SpellNameText, options.spellName.anchors, castBar.Status)
 	castBar.CastDurationText:SetText(FormatDurationText(remaining))
 
 	castBar:SetScript("OnUpdate", function()
