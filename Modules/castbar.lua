@@ -1,5 +1,6 @@
 local SCM = select(2, ...)
 local LSM = LibStub("LibSharedMedia-3.0")
+local Utils = SCM.Utils
 
 local castBarHooksSet
 
@@ -101,12 +102,25 @@ local function ApplyTextStyle(fs, fontPath, fontSize, fontOutline, justify, widt
 	fs:SetShadowOffset(0, 0)
 end
 
-local function GetMatchedCastBarWidth(options)
+local function UpdateActiveAnchorFrame(castBar, options)
+	local activeAnchor, activeAnchorGroup
+	local anchor = options.anchors and options.anchors[2]
+	if type(anchor) == "string" then
+		activeAnchor, _, activeAnchorGroup = Utils.GetActiveAnchorFrame(anchor)
+	else
+		activeAnchor = anchor
+	end
+
+	castBar.SCMActiveAnchorFrame = activeAnchor
+	castBar.SCMActiveAnchorGroup = activeAnchorGroup
+	return activeAnchor
+end
+
+local function GetMatchedCastBarWidth(options, anchorFrame)
 	if not options.matchParentWidth then
 		return
 	end
 
-	local anchorFrame = SCM.Utils.GetActiveAnchorFrame(options.anchors[2])
 	if not anchorFrame or not anchorFrame.GetWidth then
 		return
 	end
@@ -140,15 +154,20 @@ local function UpdateStatusBarLook(fillColor, bgColor)
 	local borderColor = options.borderColor
 	local backgroundColor = bgColor or options.bgColor
 	local foregroundColor = fillColor or castBar.CurrentFillColor or options.fgColor
-	local matchedWidth, anchorFrame = GetMatchedCastBarWidth(options)
+	local anchorFrame = UpdateActiveAnchorFrame(castBar, options)
+	local matchedWidth = GetMatchedCastBarWidth(options, anchorFrame)
 	local width = matchedWidth or options.width or 270
 
-	if options.matchParentWidth and anchorFrame and not anchorFrame.SCMCastBarWidthHook then
+	if options.matchParentWidth and anchorFrame and not anchorFrame.SCMProxyGroup and not anchorFrame.SCMCastBarWidthHook then
 		anchorFrame.SCMCastBarWidthHook = true
-		anchorFrame:HookScript("OnSizeChanged", function()
+		anchorFrame:HookScript("OnSizeChanged", function(changedAnchor)
 			local currentCastBar = SCM.CastBar
-			local currentOptions = SCM.castBarConfig
-			if currentCastBar and currentOptions and currentOptions.matchParentWidth then
+			local currentOptions = currentCastBar and (currentCastBar.barOptions or SCM.castBarConfig)
+			if not (currentCastBar and currentOptions.enable and currentOptions.matchParentWidth) then
+				return
+			end
+
+			if currentCastBar.SCMActiveAnchorFrame == changedAnchor then
 				SCM:RefreshCastBarWidth()
 			end
 		end)
@@ -156,7 +175,6 @@ local function UpdateStatusBarLook(fillColor, bgColor)
 
 	castBar.CurrentFillColor = foregroundColor
 	castBar:SetSize(width, options.height)
-	anchorFrame = anchorFrame or SCM.Utils.GetActiveAnchorFrame(options.anchors[2])
 	castBar:ClearAllPoints()
 	castBar:SetPoint(options.anchors[1], anchorFrame or UIParent, options.anchors[3], options.anchors[4], options.anchors[5])
 	castBar:SetFrameStrata(options.frameStrata or "BACKGROUND")
@@ -466,7 +484,8 @@ function SCM:RefreshCastBarWidth(delay)
 			return
 		end
 
-		local anchorWidth = GetMatchedCastBarWidth(currentOptions)
+		local anchorFrame = UpdateActiveAnchorFrame(currentCastBar, currentOptions)
+		local anchorWidth = GetMatchedCastBarWidth(currentOptions, anchorFrame)
 		if anchorWidth and anchorWidth > 0 then
 			UpdateStatusBarLook(currentCastBar.CurrentFillColor)
 			if currentCastBar:IsShown() and currentCastBar.CurrentEmpoweredStages and currentCastBar.Status:GetStatusBarTexture() then
@@ -533,8 +552,16 @@ function SCM:CreateCastBar()
 	castBar.Spark = castBar:CreateTexture(nil, "OVERLAY", nil, 2)
 
 	self.CastBar = castBar
-	EventRegistry:RegisterCallback(ANCHOR_PROXY_SIZE_CHANGED_EVENT, function()
-		SCM:RefreshCastBarWidth()
+	EventRegistry:RegisterCallback(ANCHOR_PROXY_SIZE_CHANGED_EVENT, function(_, proxyGroup, proxy, _width, _height, _selectedAnchorRef, isActiveProxy)
+		local currentOptions = castBar.barOptions or SCM.castBarConfig
+		if not (currentOptions.enable and currentOptions.matchParentWidth and isActiveProxy) then
+			return
+		end
+
+		if castBar.SCMActiveAnchorFrame == proxy or castBar.SCMActiveAnchorGroup == proxyGroup then
+			castBar.SCMActiveAnchorFrame = proxy
+			SCM:RefreshCastBarWidth()
+		end
 	end, castBar)
 	self:UpdateCastBar()
 	return castBar

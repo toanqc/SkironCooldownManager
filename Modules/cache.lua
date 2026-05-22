@@ -15,6 +15,7 @@ Cache.cachedAnchorLinks = {}
 Cache.cachedAnchorLinksDirty = true
 Cache.cachedAnchorQueue = {}
 Cache.cachedAnchorOffsetVisited = {}
+Cache.cachedParsedAnchorStrings = {}
 Cache.cachedCustomSpellEntriesBySpellID = {}
 Cache.cachedCustomItemEntriesByItemID = {}
 Cache.cachedCustomSlotEntriesByItemID = {}

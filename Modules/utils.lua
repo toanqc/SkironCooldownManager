@@ -226,6 +226,13 @@ function Utils.ParseAnchorString(anchorString)
 		return
 	end
 
+	local parsedAnchorStrings = Cache.cachedParsedAnchorStrings
+	local cachedAnchorGroup = parsedAnchorStrings[anchorString]
+	if cachedAnchorGroup then
+		return cachedAnchorGroup
+	end
+
+	local anchorGroup
 	if anchorString:sub(1, 7) ~= "ANCHOR:" then
 		return
 	end
@@ -239,14 +246,15 @@ function Utils.ParseAnchorString(anchorString)
 
 		anchorType = string.upper(anchorType)
 		if anchorType == "I" then
-			return anchorID
+			anchorGroup = anchorID
 		elseif anchorType == "G" then
-			return Utils.ToGlobalGroup(anchorID)
+			anchorGroup = Utils.ToGlobalGroup(anchorID)
 		elseif anchorType == "BB" then
-			return Utils.ToBuffBarGroup(anchorID)
+			anchorGroup = Utils.ToBuffBarGroup(anchorID)
 		end
 
-		return
+		parsedAnchorStrings[anchorString] = anchorGroup
+		return anchorGroup
 	end
 
 	anchorID = anchorString:match("^ANCHOR:(%d+)$")
@@ -255,6 +263,7 @@ function Utils.ParseAnchorString(anchorString)
 		return
 	end
 
+	parsedAnchorStrings[anchorString] = anchorID
 	return anchorID
 end
 
@@ -303,10 +312,10 @@ function Utils.GetActiveAnchorFrame(anchorFrames)
 	local state = anchorGroup and Cache.cachedAnchorStates[anchorGroup]
 	local proxy = state and state.currentProxyActive and state.currentProxyFrame
 	if proxy and proxy:IsShown() then
-		return proxy, selectedAnchorRef
+		return proxy, selectedAnchorRef, anchorGroup
 	end
 
-	return anchorFrame, selectedAnchorRef
+	return anchorFrame, selectedAnchorRef, anchorGroup
 end
 
 function Utils.GetPairedSource(sourceIndex)

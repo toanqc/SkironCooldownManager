@@ -115,9 +115,15 @@ local function RemoveProxy(state)
 end
 
 local function OnProxySizeChanged(proxy, width, height)
-	if proxy.SCMProxyGroup then
-		EventRegistry:TriggerEvent(ANCHOR_PROXY_SIZE_CHANGED_EVENT, proxy.SCMProxyGroup, proxy, width, height)
+	local group = proxy.SCMProxyGroup
+	if not group then
+		return
 	end
+
+	local state = Cache.cachedAnchorStates[group]
+	local selectedAnchorRef = state and state.currentSelectedAnchorFrame
+	local isActiveProxy = state and state.currentProxyActive and state.currentProxyFrame == proxy or false
+	EventRegistry:TriggerEvent(ANCHOR_PROXY_SIZE_CHANGED_EVENT, group, proxy, width, height, selectedAnchorRef, isActiveProxy)
 end
 
 local function GetProxy(group)

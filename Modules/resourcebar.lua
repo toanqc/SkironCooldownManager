@@ -999,13 +999,23 @@ function SCMResourceBarControllerMixin:ApplyResourceBarOptions()
 	return barOptions
 end
 
+function SCMResourceBarControllerMixin:UpdateActiveAnchorFrame(anchor)
+	local activeAnchor, activeAnchorGroup
+	if type(anchor) == "string" then
+		activeAnchor, _, activeAnchorGroup = Utils.GetActiveAnchorFrame(anchor)
+	else
+		activeAnchor = anchor
+	end
+
+	self.SCMActiveAnchorFrame = activeAnchor
+	self.SCMActiveAnchorGroup = activeAnchorGroup
+	return activeAnchor
+end
+
 function SCMResourceBarControllerMixin:ApplyFrameWidthOptions(bar)
 	local specificBarOptions = bar.barOptions
 	local generalBarOptions = self.barOptions
-	local anchor = generalBarOptions.anchorFrame or DEFAULT_RESOURCE_BAR_ANCHOR
-	if type(anchor) == "string" then
-		anchor = Utils.GetActiveAnchorFrame(anchor)
-	end
+	local anchor = self.SCMActiveAnchorFrame or self:UpdateActiveAnchorFrame(generalBarOptions.anchorFrame or DEFAULT_RESOURCE_BAR_ANCHOR)
 
 	if anchor then
 		local widthFromOptions = specificBarOptions.width
@@ -1019,11 +1029,17 @@ function SCMResourceBarControllerMixin:ApplyFrameWidthOptions(bar)
 		local widthChanged = previousWidth ~= (bar:GetWidth() or 0)
 
 		bar.SCMResourceBarHooks = bar.SCMResourceBarHooks or {}
-		if not bar.SCMResourceBarHooks[anchor] then
+		if not anchor.SCMProxyGroup and not bar.SCMResourceBarHooks[anchor] then
 			bar.SCMResourceBarHooks[anchor] = true
-			anchor:HookScript("OnSizeChanged", function()
+			anchor:HookScript("OnSizeChanged", function(changedAnchor)
 				local barOptions = bar.barOptions
-				if not bar:IsProtected() and barOptions and barOptions.matchAnchorWidth then
+				local controller = bar.Controller
+				local generalBarOptions = controller and controller.barOptions or SCM.resourceBarConfig
+				if bar:IsProtected() or not (generalBarOptions.enabled and barOptions and barOptions.enabled and barOptions.matchAnchorWidth) then
+					return
+				end
+
+				if controller and controller.SCMActiveAnchorFrame == changedAnchor then
 					SCM:RefreshResourceBarConfig()
 				end
 			end)
@@ -1104,6 +1120,7 @@ function SCMResourceBarControllerMixin:RefreshResourceBars(refreshTicks)
 
 	if primaryBarOptions.enabled or secondaryBarOptions.enabled then
 		self:RegisterResourceBarEvents()
+		self:UpdateActiveAnchorFrame(barOptions.anchorFrame or DEFAULT_RESOURCE_BAR_ANCHOR)
 
 		local primaryWidthChanged = false
 		local secondaryWidthChanged = false
@@ -1305,6 +1322,9 @@ function SCMResourceBarControllerMixin:RefreshBarDisplay(bar, refreshTicks, skip
 	end
 	bar:SetMinMaxValues(0, maxValue)
 	bar:SetValue(currentValue)
+	if not skipWidthOptions then
+		self:UpdateActiveAnchorFrame(self.barOptions.anchorFrame or DEFAULT_RESOURCE_BAR_ANCHOR)
+	end
 	local widthChanged = not skipWidthOptions and self:ApplyFrameWidthOptions(bar)
 	if bar.resourceKind == "spellCharges" then
 		bar.SCMSegmentedDisplay = nil
@@ -1480,8 +1500,20 @@ function SCMResourceBarControllerMixin:Initialize()
 	self:SetScript("OnAttributeChanged", self.OnAttributeChanged)
 	self:SetScript("OnEvent", self.OnEvent)
 	self:RegisterResourceBarEvents()
-	EventRegistry:RegisterCallback(ANCHOR_PROXY_SIZE_CHANGED_EVENT, function()
-		SCM:RefreshResourceBarConfig()
+	EventRegistry:RegisterCallback(ANCHOR_PROXY_SIZE_CHANGED_EVENT, function(_, proxyGroup, proxy, _width, _height, _selectedAnchorRef, isActiveProxy)
+		local barOptions = SCM.resourceBarConfig
+		local primaryBarOptions = barOptions.primaryBar
+		local secondaryBarOptions = barOptions.secondaryBar
+		local primaryMatchesAnchor = primaryBarOptions.enabled and primaryBarOptions.matchAnchorWidth
+		local secondaryMatchesAnchor = secondaryBarOptions.enabled and secondaryBarOptions.matchAnchorWidth
+		if not (barOptions.enabled and isActiveProxy and (primaryMatchesAnchor or secondaryMatchesAnchor)) then
+			return
+		end
+
+		if self.SCMActiveAnchorFrame == proxy or self.SCMActiveAnchorGroup == proxyGroup then
+			self.SCMActiveAnchorFrame = proxy
+			SCM:RefreshResourceBarConfig()
+		end
 	end, self)
 
 	self:RefreshResourceBars(true)
