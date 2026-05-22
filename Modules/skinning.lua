@@ -170,7 +170,7 @@ local function ApplyCooldownStyle(child, options)
 end
 
 local function ApplyZoomSettings(child, options)
-	local iconZoom = options.iconZoom
+	local iconZoom = SCM:PixelPerfect(options.iconZoom)
 
 	if options.keepIconSquareRatio and child.SCMWidth and child.SCMHeight then
 		local xCrop = 1 - iconZoom
