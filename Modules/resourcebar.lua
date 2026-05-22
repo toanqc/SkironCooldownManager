@@ -454,6 +454,52 @@ local function UpdateSpellChargeRecharge(bar, chargeInfo)
 	segment:Show()
 end
 
+local function HideResourceBarSpark(bar)
+	if bar.Spark then
+		bar.Spark:Hide()
+	end
+end
+
+local function ApplyResourceBarSparkOptions(bar, sparkAnchor, optionsChanged)
+	if not optionsChanged or not sparkAnchor then
+		return
+	end
+
+	local spark = bar.Spark
+	local sparkOptions = bar.barOptions and bar.barOptions.spark
+	local color = sparkOptions.color
+	local width = SCM:PixelPerfect(sparkOptions.width)
+	local height = SCM:PixelPerfect(sparkOptions.height)
+	local blendMode = sparkOptions.blendMode
+
+	local texture = sparkOptions.texture
+	local texturePath = "Interface\\Buttons\\WHITE8x8"
+	if type(texture) == "string" and texture ~= "" then
+		if texture:find("\\", 1, true) then
+			texturePath = texture
+		end
+
+		local sharedMediaPath = LSM:Fetch("statusbar", texture)
+		if sharedMediaPath then
+			texturePath = sharedMediaPath
+		end
+	end
+	if bar.SparkFrame then
+		bar.SparkFrame:SetFrameStrata(bar:GetFrameStrata())
+		bar.SparkFrame:SetFrameLevel(bar:GetFrameLevel() + 4)
+	end
+
+	spark:SetSize(width, height)
+	spark:SetBlendMode(blendMode)
+	spark:SetTexture(texturePath)
+	spark:SetVertexColor(color.r, color.g, color.g, color.a)
+	spark:SetAlpha(1)
+	spark:SetSnapToPixelGrid(false)
+	spark:SetTexelSnappingBias(0)
+	spark:ClearAllPoints()
+	PixelUtil.SetPoint(spark, "LEFT", sparkAnchor, "RIGHT", sparkOptions.xOffset, sparkOptions.yOffset)
+end
+
 local function ResetResourceBar(bar)
 	bar.resourceKind = nil
 	bar.powerType = nil
@@ -467,6 +513,7 @@ local function ResetResourceBar(bar)
 	HideRegions(bar.SegmentFillBars)
 	HideRegions(bar.RuneSegmentBars)
 	HideRechargeSegment(bar)
+	HideResourceBarSpark(bar)
 	if bar.SegmentTickFrame then
 		bar.SegmentTickFrame:Hide()
 	end
@@ -531,7 +578,6 @@ local function CreateTicks(bar, tickCount, tickColor)
 
 	if not tickFrame then
 		tickFrame = CreateFrame("Frame", nil, bar)
-		tickFrame:EnableMouse(false)
 		bar.SegmentTickFrame = tickFrame
 	end
 
@@ -853,6 +899,10 @@ local function ApplyBarAppearance(bar, barOptions)
 			bar.SegmentTickFrame:SetFrameStrata(bar:GetFrameStrata())
 			bar.SegmentTickFrame:SetFrameLevel(bar:GetFrameLevel() + 2)
 		end
+		if bar.SparkFrame then
+			bar.SparkFrame:SetFrameStrata(bar:GetFrameStrata())
+			bar.SparkFrame:SetFrameLevel(bar:GetFrameLevel() + 4)
+		end
 		bar.Text:SetFrameLevel(bar:GetFrameLevel() + 3)
 	end
 end
@@ -869,6 +919,18 @@ local function InitializeBarSkin(bar)
 
 	if not bar.BorderFrame then
 		bar.BorderFrame = CreateFrame("Frame", nil, bar, "BackdropTemplate")
+	end
+
+	if not bar.SparkFrame then
+		bar.SparkFrame = CreateFrame("Frame", nil, bar)
+		bar.SparkFrame:SetAllPoints(bar)
+		bar.SparkFrame:SetClipsChildren(true)
+		bar.SparkFrame:SetFrameLevel(bar:GetFrameLevel() + 4)
+	end
+
+	if not bar.Spark then
+		bar.Spark = bar.SparkFrame:CreateTexture(nil, "OVERLAY", nil, 2)
+		bar.Spark:Hide()
 	end
 
 	-- If anyone wants to explain to me how to fix this then I'm all ears
@@ -1080,7 +1142,7 @@ function SCMResourceBarControllerMixin:OnUpdate(elapsed)
 	self:UpdateRefreshState()
 end
 
-function SCMResourceBarControllerMixin:RefreshResourceBars(refreshTicks)
+function SCMResourceBarControllerMixin:RefreshResourceBars(refreshTicks, optionsChanged)
 	local barOptions = self:ApplyResourceBarOptions()
 	local primaryBarOptions = barOptions.primaryBar
 	local secondaryBarOptions = barOptions.secondaryBar
@@ -1135,8 +1197,8 @@ function SCMResourceBarControllerMixin:RefreshResourceBars(refreshTicks)
 		local refreshPrimaryTicks = refreshTicks or primaryResourceChanged or primaryWidthChanged or primaryHeightChanged
 		local refreshSecondaryTicks = refreshTicks or secondaryResourceChanged or secondaryWidthChanged or secondaryHeightChanged
 
-		self:RefreshBarDisplay(self.PrimaryBar, refreshPrimaryTicks, true)
-		self:RefreshBarDisplay(self.SecondaryBar, refreshSecondaryTicks, true)
+		self:RefreshBarDisplay(self.PrimaryBar, refreshPrimaryTicks, true, optionsChanged)
+		self:RefreshBarDisplay(self.SecondaryBar, refreshSecondaryTicks, true, optionsChanged)
 		self:UpdateContainerShownState()
 		self:UpdateRefreshState()
 
@@ -1290,8 +1352,9 @@ function SCMResourceBarControllerMixin:ConfigureSecondaryBar()
 	return ConfigureBarForResource(self.SecondaryBar, secondaryResource)
 end
 
-function SCMResourceBarControllerMixin:RefreshBarDisplay(bar, refreshTicks, skipWidthOptions)
+function SCMResourceBarControllerMixin:RefreshBarDisplay(bar, refreshTicks, skipWidthOptions, optionsChanged)
 	if not bar.powerToken then
+		HideResourceBarSpark(bar)
 		return
 	end
 
@@ -1313,6 +1376,7 @@ function SCMResourceBarControllerMixin:RefreshBarDisplay(bar, refreshTicks, skip
 		if refreshTicks then
 			RefreshBarTicks(bar)
 		end
+		HideResourceBarSpark(bar)
 		bar:Hide()
 		return
 	end
@@ -1337,6 +1401,39 @@ function SCMResourceBarControllerMixin:RefreshBarDisplay(bar, refreshTicks, skip
 		UpdateSegments(bar, maxValue, currentValue, resourceSegmentValues)
 	end
 	bar:Show()
+
+	local spark = bar.Spark
+	local barOptions = bar.barOptions
+	local sparkOptions = barOptions.spark
+	if spark and sparkOptions.enable and not barOptions.textOnly then
+		local sparkAnchor
+		local sparkFrameAlpha = 1
+		local showSpark = true
+		if bar.resourceKind == "spellCharges" then
+			local rechargeSegment = bar.RechargeSegment
+			if rechargeSegment and rechargeSegment:IsShown() then
+				sparkAnchor = rechargeSegment:GetStatusBarTexture()
+			end
+			showSpark = sparkAnchor ~= nil
+		else
+			sparkFrameAlpha = currentValue
+		end
+
+		if showSpark then
+			sparkAnchor = sparkAnchor or bar:GetStatusBarTexture()
+			ApplyResourceBarSparkOptions(bar, sparkAnchor, optionsChanged)
+			if bar.SparkFrame then
+				bar.SparkFrame:SetAlpha(sparkFrameAlpha)
+			end
+
+			spark:Show()
+		else
+			HideResourceBarSpark(bar)
+		end
+	elseif spark then
+		HideResourceBarSpark(bar)
+	end
+
 	if refreshTicks or widthChanged then
 		RefreshBarTicks(bar, maxValue)
 	end
@@ -1536,7 +1633,7 @@ function SCM:InitializeResourceBars()
 	container:Initialize()
 end
 
-function SCM:RefreshResourceBarConfig(refreshTicks)
+function SCM:RefreshResourceBarConfig(refreshTicks, optionsChanged)
 	local container = _G[RESOURCE_BAR_FRAME_NAME]
 	if not container then
 		return
@@ -1550,7 +1647,7 @@ function SCM:RefreshResourceBarConfig(refreshTicks)
 		end
 	end
 
-	container:RefreshResourceBars(refreshTicks)
+	container:RefreshResourceBars(refreshTicks, optionsChanged)
 end
 
 function SCM:SetPrimaryResourceBarColorOverride(r, g, b)

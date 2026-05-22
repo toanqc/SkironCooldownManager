@@ -248,6 +248,17 @@ SCM.DefaultDB = {
 					heightAlternative = 20,
 					showValues = true,
 					forceMana = false,
+					spark = {
+						enable = false,
+						width = 2,
+						height = 22,
+						color = { r = 1, g = 1, b = 1, a = 1 },
+						texture = "Solid",
+						xOffset = 0,
+						yOffset = 0,
+						useCustomTexture = false,
+						blendMode = "ADD",
+					},
 					druidFormPowerTypes = {
 						[102] = {
 							[0] = "none",
@@ -308,6 +319,17 @@ SCM.DefaultDB = {
 					showValues = true,
 					disableMaelstromOverflow = false,
 					forceMana = false,
+					spark = {
+						enable = false,
+						width = 2,
+						height = 22,
+						color = { r = 1, g = 1, b = 1, a = 1 },
+						texture = "Solid",
+						xOffset = 0,
+						yOffset = 0,
+						useCustomTexture = false,
+						blendMode = "ADD",
+					},
 					druidFormPowerTypes = {
 						[102] = {
 							[0] = "none",
@@ -384,7 +406,7 @@ SCM.DefaultDB = {
 					xOffset = 0,
 					yOffset = 0,
 					useCustomTexture = false,
-					blendMode = "ADD"
+					blendMode = "ADD",
 				},
 				spellName = {
 					enable = true,
