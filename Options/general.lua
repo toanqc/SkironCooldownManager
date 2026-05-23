@@ -934,6 +934,25 @@ local function SelectGlobalSettingsTab(tabWidget, group, options)
 	elseif group == "BuffBar" then
 		local buffBarOptions = options.buffBarOptions
 
+		local generalSettings = AceGUI:Create("InlineGroup")
+		generalSettings:SetLayout("flow")
+		generalSettings:SetFullWidth(true)
+		generalSettings:SetTitle("General")
+		tabWidget:AddChild(generalSettings)
+
+		local buffBarContent = AceGUI:Create("Dropdown")
+		buffBarContent:SetList(SCM.Constants.BuffBarContent)
+		buffBarContent:SetRelativeWidth(0.5)
+		buffBarContent:SetLabel("Bar Type")
+		buffBarContent:SetValue(options.buffBarContent)
+		buffBarContent:SetCallback("OnValueChanged", function(_, _, value)
+			options.buffBarContent = value
+
+			SCM:SetBuffBarContent(value)
+			SCM:SkinBuffBars()
+		end)
+		generalSettings:AddChild(buffBarContent)
+
 		local textureSettings = AceGUI:Create("InlineGroup")
 		textureSettings:SetLayout("flow")
 		textureSettings:SetFullWidth(true)

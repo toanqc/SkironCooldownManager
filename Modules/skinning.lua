@@ -346,7 +346,12 @@ function SCM:SkinBuffBar(child, config)
 			end
 		end
 
-		bar:SetPoint("TOPLEFT", iconFrame, "TOPRIGHT", -borderSize, 0)
+		if options.buffBarContent == 2 then
+			bar:SetPoint("TOPLEFT", iconFrame, "TOPLEFT", 0, 0)
+		else
+			bar:SetPoint("TOPLEFT", iconFrame, "TOPRIGHT", -borderSize, 0)
+		end
+
 		bar:SetPoint("BOTTOMLEFT", iconFrame, "BOTTOMRIGHT", -borderSize, 0)
 		bar:SetHeight(iconFrame:GetHeight())
 		bar:SetStatusBarColor(foregroundColor.r, foregroundColor.g, foregroundColor.b, foregroundColor.a)

@@ -97,6 +97,11 @@ Constants.BlendModeSorted = {
 	"MOD"
 }
 
+Constants.BuffBarContent = {
+	[Enum.CooldownViewerBarContent.IconAndName] = "Bar + Icon",
+	[Enum.CooldownViewerBarContent.NameOnly] = "Bar Only"
+}
+
 Constants.ResourceBarGrowthDirection = {
 	UP = "Up",
 	DOWN = "Down",

@@ -379,6 +379,18 @@ function SCM:SetHideWhenInactive(value)
 	end
 end
 
+function SCM:SetBuffBarContent(value)
+	LibEditModeOverride:LoadLayouts()
+	if LibEditModeOverride:CanEditActiveLayout() then
+		local currentSetting = LibEditModeOverride:GetFrameSetting(BuffBarCooldownViewer, Enum.EditModeCooldownViewerSetting.BarContent)
+		if value ~= currentSetting then
+			LibEditModeOverride:SetFrameSetting(BuffBarCooldownViewer, Enum.EditModeCooldownViewerSetting.BarContent, value)
+			LibEditModeOverride:SaveOnly()
+			LibEditModeOverride:ApplyChanges()
+		end
+	end
+end
+
 function SCM:GetVisibilityConditions(options)
 	if options.useCustomVisibilityCondition then
 		local currentCondition = SecureCmdOptionParse(options.customVisibilityCondition)
@@ -436,6 +448,7 @@ function SCM:ApplyOptions()
 
 	local options = self.db.profile.options
 	self:SetHideWhenInactive(options.hideBuffsWhenInactive)
+	self:SetBuffBarContent(options.buffBarContent)
 	self:ApplyAttributeDriver(options.hideWhileMounted)
 	self.Cooldowns:ApplyFormatterSettings()
 end

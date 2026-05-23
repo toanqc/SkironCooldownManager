@@ -92,6 +92,7 @@ SCM.DefaultDB = {
 			hideOutOfCombat = false,
 			useCustomVisibilityCondition = false,
 			customVisibilityCondition = "",
+			buffBarContent = 0,
 			debug = false,
 			debugGroup = 0,
 			savePosition = false,
