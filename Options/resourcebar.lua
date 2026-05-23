@@ -317,6 +317,19 @@ local function AddSpecialColorSettings(parent, settings)
 		RefreshResourceBars()
 	end)
 	specialColors:AddChild(maelstromOverflowColor)
+
+	local defaultRuneColor = settings.powerTypeColorOverrides.RUNES.color
+	local runeRechargeColorValue = settings.runeRechargeColor or defaultRuneColor
+	local runeRechargeColor = AceGUI:Create("ColorPicker")
+	runeRechargeColor:SetRelativeWidth(0.33)
+	runeRechargeColor:SetLabel("Recharging Runes")
+	runeRechargeColor:SetHasAlpha(false)
+	runeRechargeColor:SetColor(runeRechargeColorValue.r, runeRechargeColorValue.g, runeRechargeColorValue.b)
+	runeRechargeColor:SetCallback("OnValueChanged", function(_, _, r, g, b)
+		settings.runeRechargeColor = { r = r, g = g, b = b }
+		RefreshResourceBars()
+	end)
+	specialColors:AddChild(runeRechargeColor)
 end
 
 local function AddBarSettings(parent, title, settings, includeManaRoleSettings, globalSettings)

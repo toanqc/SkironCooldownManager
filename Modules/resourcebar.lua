@@ -789,6 +789,7 @@ local function UpdateSegments(bar, maxValue, currentValue, resourceSegmentValues
 	local segmentBars = CreateSegments(bar, segmentCount)
 	local texturePath = bar.SCMTexturePath or LSM:Fetch("statusbar", barOptions.texture)
 	local r, g, b = GetPowerColor(bar.powerToken, bar.powerType)
+	local runeRechargeColor = bar.resourceKind == "runes" and SCM.resourceBarConfig.runeRechargeColor
 	local overflowR, overflowG, overflowB = CHARGED_COMBO_POINT_COLOR.r, CHARGED_COMBO_POINT_COLOR.g, CHARGED_COMBO_POINT_COLOR.b
 
 	if bar.resourceKind == "maelstromWeapon" then
@@ -816,7 +817,10 @@ local function UpdateSegments(bar, maxValue, currentValue, resourceSegmentValues
 		end
 
 		local segmentR, segmentG, segmentB = r, g, b
-		if chargedSegments and chargedSegments[segmentIndex] then
+		local segmentProgress = segmentProgressValues[segmentIndex] or 0
+		if runeRechargeColor and segmentProgress > 0 and segmentProgress < 1 then
+			segmentR, segmentG, segmentB = runeRechargeColor.r, runeRechargeColor.g, runeRechargeColor.b
+		elseif chargedSegments and chargedSegments[segmentIndex] then
 			if bar.resourceKind == "maelstromWeapon" then
 				segmentR, segmentG, segmentB = overflowR, overflowG, overflowB
 			else
@@ -825,7 +829,7 @@ local function UpdateSegments(bar, maxValue, currentValue, resourceSegmentValues
 		end
 
 		segmentBar:SetStatusBarColor(segmentR, segmentG, segmentB)
-		segmentBar:SetValue(segmentProgressValues[segmentIndex] or 0)
+		segmentBar:SetValue(segmentProgress)
 		segmentBar:Show()
 	end
 
