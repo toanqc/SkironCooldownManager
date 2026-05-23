@@ -47,16 +47,25 @@ local function ResetCustomIconFrame(_, frame)
 	frame.UpdateCooldown = nil
 	frame.UpdateCharges = nil
 	frame.height = nil
+	frame.isOnCooldown = nil
+	frame.isOnGCD = nil
+	frame.spellOutOfRange = nil
 
 	frame:EnableMouse(false)
 	frame:SetAlpha(1)
 	frame:Hide()
 	frame:ClearAllPoints()
+	frame.OutOfRange:Hide()
+	frame.Icon:SetVertexColor(1, 1, 1, 1)
 	frame.Icon:SetDesaturated(false)
 	frame.Icon:SetTexture(nil)
 	frame.CraftQuality:Hide()
 	frame.CraftQuality:SetTexture(nil)
 	frame.Cooldown:Clear()
+	frame.Cooldown:SetReverse(false)
+	frame.GCDCooldown:Clear()
+	frame.GCDCooldown:Hide()
+	frame.GCDCooldown:SetReverse(true)
 	frame.ChargeCount.Current:SetText("")
 	frame.ChargeCount.Current:Hide()
 end
