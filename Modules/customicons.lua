@@ -7,6 +7,7 @@ local Icons = SCM.Icons
 local Utils = SCM.Utils
 local GetIconType = Utils.GetIconType
 local ResetChildSCMState = Utils.ResetChildSCMState
+local ToGlobalGroup = Utils.ToGlobalGroup
 
 local CustomItemFrames = {}
 local CustomSpellFrames = {}
@@ -38,6 +39,7 @@ local function ResetCustomIconFrame(_, frame)
 	frame.SCMReleased = true
 	frame.SCMFrameRegistry = nil
 	frame.SCMFrameID = nil
+	frame.SCMSkinned = nil
 	frame.spellID = nil
 	frame.SCMItemID = nil
 	frame.slotID = nil
@@ -45,16 +47,27 @@ local function ResetCustomIconFrame(_, frame)
 	frame.UpdateCooldown = nil
 	frame.UpdateCharges = nil
 	frame.height = nil
+	frame.isOnCooldown = nil
+	frame.isOnGCD = nil
+	frame.spellOutOfRange = nil
+	frame.SCMCooldownStartTime = nil
+	frame.SCMCooldownDuration = nil
 
 	frame:EnableMouse(false)
 	frame:SetAlpha(1)
 	frame:Hide()
 	frame:ClearAllPoints()
+	frame.OutOfRange:Hide()
+	frame.Icon:SetVertexColor(1, 1, 1, 1)
 	frame.Icon:SetDesaturated(false)
 	frame.Icon:SetTexture(nil)
 	frame.CraftQuality:Hide()
 	frame.CraftQuality:SetTexture(nil)
 	frame.Cooldown:Clear()
+	frame.Cooldown:SetReverse(false)
+	frame.GCDCooldown:Clear()
+	frame.GCDCooldown:Hide()
+	frame.GCDCooldown:SetReverse(true)
 	frame.ChargeCount.Current:SetText("")
 	frame.ChargeCount.Current:Hide()
 end
@@ -88,12 +101,26 @@ local function OnIconCooldownDone(self)
 	end
 
 	if parent and parent.SCMGroup then
-		SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup, parent.SCMGlobal)
+		SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup, parent.SCMGlobal, CDM.UPDATE_SCOPE.ESSENTIAL_UTILITY)
 	end
 end
 
 local function OnCustomIconShow(self)
-	if not ShouldShowCustomIcon(self.SCMConfig, self.SCMIconType, nil, nil, self) and not self:GetAttribute("statehidden") then
+	if self:GetAttribute("statehidden") then
+		return
+	end
+
+	if self.SCMShouldBeVisible and not self.SCMLayoutApplied then
+		self.SCMAppliedVisibility = false
+		self:Hide()
+		return
+	end
+
+	if self.SCMIconType == "empty" then
+		return
+	end
+
+	if not ShouldShowCustomIcon(self.SCMConfig, self.SCMIconType, nil, nil, self) then
 		Icons.SetChildVisibilityState(self, false, true)
 	end
 end
@@ -305,28 +332,27 @@ local function UpdateCustomIconCooldown(frame, iconType, config)
 	end
 
 	if iconType == "spell" then
-		local spellCooldown = C_Spell.GetSpellCharges(config.spellID)
-		local durationObject = C_Spell.GetSpellChargeDuration(config.spellID, true)
 		local isOnCooldown = false
-		if spellCooldown and spellCooldown.isActive and not spellCooldown.isOnGCD then
-			frame.Cooldown:SetCooldownFromDurationObject(durationObject)
-			isOnCooldown = true
+		local spellCooldown = C_Spell.GetSpellCooldown(config.spellID)
+		if spellCooldown.isActive and not spellCooldown.isOnGCD then
+			local durationObject = C_Spell.GetSpellCooldownDuration(config.spellID, true)
 
-			local spellDurationObject = C_Spell.GetSpellCooldownDuration(config.spellID, true)
-			local desaturation = spellDurationObject:EvaluateRemainingDuration(desaturationCurve)
-			local alpha = spellDurationObject:EvaluateRemainingDuration(alphaCurve)
-			frame.Icon:SetDesaturation(desaturation)
-			frame.Cooldown:SetEdgeColor(1, 1, 1, desaturation)
-			frame.Cooldown:SetSwipeColor(0, 0, 0, alpha)
-			--frame.Cooldown:SetReverse(frame.Icon:IsDesaturated())
-		else
-			spellCooldown = C_Spell.GetSpellCooldown(config.spellID)
-			durationObject = C_Spell.GetSpellCooldownDuration(config.spellID, true)
-			if spellCooldown.isActive and not spellCooldown.isOnGCD then
-				frame.Cooldown:SetCooldownFromDurationObject(durationObject)
-				frame.Icon:SetDesaturation(C_CurveUtil.EvaluateColorValueFromBoolean(durationObject:IsZero(), 0, 1))
-				isOnCooldown = true
-			end
+			frame.Icon:SetDesaturated(true)
+			frame.Cooldown:SetDrawEdge(false)
+			frame.Cooldown:SetSwipeColor(0, 0, 0, 0.7)
+			frame.Cooldown:SetCooldownFromDurationObject(durationObject)
+			frame.Icon:SetDesaturation(C_CurveUtil.EvaluateColorValueFromBoolean(durationObject:IsZero(), 0, 1))
+			isOnCooldown = true
+		end
+
+		spellCooldown = C_Spell.GetSpellCharges(config.spellID)
+
+		if not isOnCooldown and spellCooldown and spellCooldown.isActive and not spellCooldown.isOnGCD then
+			frame.Cooldown:SetCooldownFromDurationObject(C_Spell.GetSpellChargeDuration(config.spellID, true))
+			frame.Icon:SetDesaturated(false)
+			frame.Cooldown:SetDrawEdge(true)
+			frame.Cooldown:SetSwipeColor(0, 0, 0, 0)
+			isOnCooldown = true
 		end
 
 		if not isOnCooldown then
@@ -335,7 +361,7 @@ local function UpdateCustomIconCooldown(frame, iconType, config)
 			frame.Icon:SetDesaturated(false)
 		end
 
-		if (not spellCooldown.isActive or spellCooldown.isOnGCD) and config.showGCD then
+		if not isOnCooldown and (not spellCooldown or not spellCooldown.isActive or spellCooldown.isOnGCD) and config.showGCD then
 			local globalCooldown = C_Spell.GetSpellCooldown(61304)
 
 			if globalCooldown.isActive then
@@ -357,21 +383,23 @@ local function UpdateCustomIconCooldown(frame, iconType, config)
 		local startTime, duration, _, modRate = C_Item.GetItemCooldown(itemID)
 
 		if duration > 0 and (startTime + duration) - GetTime() >= 0 then
-			if not frame.isOnCooldown then
-				if modRate then
-					frame.Cooldown:SetCooldown(startTime, duration, modRate)
-				else
-					frame.Cooldown:SetCooldown(startTime, duration)
-				end
-
-				if itemID == 5512 and duration < 0.1 then
+			if not frame.isOnCooldown or frame.SCMCooldownStartTime ~= startTime or frame.SCMCooldownDuration ~= duration then
+				if duration < 0.1 then
 					frame.Icon:SetVertexColor(CooldownViewerConstants.ITEM_NOT_USABLE_COLOR:GetRGBA())
 					frame.Icon:SetDesaturated(false)
 				else
+					if modRate then
+						frame.Cooldown:SetCooldown(startTime, duration, modRate)
+					else
+						frame.Cooldown:SetCooldown(startTime, duration)
+					end
+
 					frame.Icon:SetVertexColor(1, 1, 1)
 					frame.Icon:SetDesaturated(true)
 				end
 				frame.isOnCooldown = true
+				frame.SCMCooldownStartTime = startTime
+				frame.SCMCooldownDuration = duration
 				UpdateCustomIconGCD(frame, config, true)
 				UpdateCustomIconGlow(frame, false)
 			end
@@ -379,8 +407,11 @@ local function UpdateCustomIconCooldown(frame, iconType, config)
 			return true
 		elseif duration == 0 and frame.isOnCooldown then
 			frame.isOnCooldown = false
+			frame.SCMCooldownStartTime = nil
+			frame.SCMCooldownDuration = nil
 			frame.Cooldown:Clear()
-			frame.Icon:SetVertexColor(0.4, 0.4, 0.4)
+			frame.Icon:SetVertexColor(1, 1, 1)
+			frame.Icon:SetDesaturated(false)
 			UpdateCustomIconGCD(frame, config, true)
 			UpdateCustomIconGlow(frame, false)
 		end
@@ -391,7 +422,10 @@ local function UpdateCustomIconCooldown(frame, iconType, config)
 		local startTime, duration = GetInventoryItemCooldown("player", config.slotID)
 		if startTime and startTime > 0 and (startTime + duration) - GetTime() >= 0.1 then
 			frame.Cooldown:SetCooldown(startTime, duration)
-			frame.Icon:SetDesaturated(true)
+
+			local globalCooldown = C_Spell.GetSpellCooldown(61304)
+			frame.Icon:SetDesaturated(not (duration == globalCooldown.duration))
+
 			UpdateCustomIconGCD(frame, config, true)
 			UpdateCustomIconGlow(frame, false)
 			return true
@@ -411,17 +445,51 @@ local function UpdateCustomIconCharges(frame, spellID)
 	end
 
 	local chargeInfo = C_Spell.GetSpellCharges(spellID)
-	if not chargeInfo then
+	if not chargeInfo and not frame.SCMConfig.forceShowCharges then
 		frame.ChargeCount.Current:Hide()
 		return
 	end
 
-	frame.ChargeCount.Current:SetText(C_Spell.GetSpellDisplayCount(spellID))
-	frame.ChargeCount.Current:Show()
+	local success, charges = pcall(C_StringUtil.TruncateWhenZero, chargeInfo and C_Spell.GetSpellDisplayCount(spellID) or C_Spell.GetSpellCastCount(spellID))
+	if success then
+		frame.ChargeCount.Current:SetText(charges)
+		frame.ChargeCount.Current:Show()
+	else
+		frame.ChargeCount.Current:Hide()
+	end
+end
+
+local function UpdateSpellUsesForEntries(entries)
+	if not entries then
+		return
+	end
+
+	for i = 1, #entries do
+		local entry = entries[i]
+		local frame = CustomSpellFrames[entry.id]
+		local updateCharges = frame and not frame.SCMReleased and frame.UpdateCharges
+		if updateCharges then
+			updateCharges(frame, entry.config.spellID)
+		end
+	end
+end
+
+function CustomIcons.UpdateSpellUses(spellID, baseSpellID)
+	local entriesBySpellID = Cache.cachedCustomSpellEntriesBySpellID
+
+	UpdateSpellUsesForEntries(entriesBySpellID[spellID])
+
+	if baseSpellID and baseSpellID ~= spellID then
+		UpdateSpellUsesForEntries(entriesBySpellID[baseSpellID])
+	end
 end
 
 local function DoesItemOrSpellExists(config)
 	local iconType = GetIconType(config)
+	if iconType == "empty" then
+		return true
+	end
+
 	if iconType == "spell" or iconType == "timer" then
 		return config.spellID and C_Spell.DoesSpellExist(config.spellID)
 	end
@@ -431,9 +499,11 @@ local function DoesItemOrSpellExists(config)
 	end
 
 	if iconType == "slot" then
-		if config.slotID then
+		if config.alwaysShow then
+			return true
+		elseif config.slotID then
 			local itemID = GetInventoryItemID("player", config.slotID)
-			if itemID then
+			if itemID and (not config.filterItems or not config.filterItems[itemID]) then
 				return C_Item.DoesItemExistByID(itemID) and C_Item.GetItemSpell(itemID)
 			end
 		end
@@ -546,6 +616,13 @@ local function ConfigureCustomIconFrame(frame, id, config, viewerScale, anchorGr
 	frame.SCMGlobal = isGlobal and true or nil
 	frame.SCMCustom = true
 
+	if frame.SCMIconType == "empty" then
+		frame:SetBackdrop(nil)
+	else
+		frame:SetBackdrop(frame.backdropInfo)
+		frame:SetBackdropBorderColor(frame.backdropBorderColor:GetRGBA())
+	end
+
 	if frame.SCMIconType == "item" then
 		SetCustomItemID(frame, config)
 	elseif config.slotID then
@@ -558,6 +635,10 @@ end
 
 local function UpdateCustomIconFrameState(frame, config)
 	local iconType = frame.SCMIconType
+	if iconType == "empty" then
+		return
+	end
+
 	local iconTexture = GetCustomIconTexture(config, iconType, frame)
 	if not iconTexture then
 		iconTexture = 134400
@@ -573,7 +654,7 @@ local function UpdateCustomIconFrameState(frame, config)
 		local chargeInfo = C_Spell.GetSpellCharges(config.spellID)
 		UpdateCustomIconCharges(frame, config.spellID)
 
-		if chargeInfo then
+		if chargeInfo or frame.SCMConfig.forceShowCharges then
 			frame.UpdateCharges = UpdateCustomIconCharges
 		end
 	elseif iconType ~= "item" then
@@ -720,6 +801,9 @@ local function RebuildCustomIconLoadCache()
 	wipe(Cache.cachedCustomSpellEntriesBySpellID)
 	wipe(Cache.cachedCustomItemEntriesByItemID)
 	wipe(Cache.cachedCustomSlotEntriesByItemID)
+	for _, entries in pairs(Cache.cachedCustomIconsByGroup) do
+		wipe(entries)
+	end
 
 	local function CacheCustomConfig(customConfig, isGlobal)
 		if not customConfig then
@@ -728,6 +812,14 @@ local function RebuildCustomIconLoadCache()
 
 		for id, config in pairs(customConfig) do
 			local slotItemID = config.slotID and GetInventoryItemID("player", config.slotID) or nil
+			local group = isGlobal and ToGlobalGroup(config.anchorGroup or 1) or (config.anchorGroup or 1)
+			local groupEntries = Cache.cachedCustomIconsByGroup[group]
+			if not groupEntries then
+				groupEntries = {}
+				Cache.cachedCustomIconsByGroup[group] = groupEntries
+			end
+			groupEntries[#groupEntries + 1] = id
+			groupEntries[#groupEntries + 1] = config
 			CacheCustomIconEntry(id, config, isGlobal, slotItemID)
 			RequestCustomIconDataLoad(config, requestedSpellIDs, requestedItemIDs, slotItemID)
 		end
@@ -760,7 +852,7 @@ local function CreateCustomIcon(id, config, isGlobal, skipExisting)
 			ConfigureCustomIconFrame(frame, id, config, 1, config.anchorGroup or 1, isGlobal)
 			UpdateCustomIconFrameState(frame, config)
 			ApplyGlobalSettings(frame)
-			Icons.SetChildVisibilityState(frame, false, true)
+			Icons.SetChildVisibilityState(frame, frame.SCMIconType == "empty", true)
 		elseif customFrames[id] then
 			ReleaseCustomIconFrame(customFrames[id])
 		end
@@ -811,49 +903,84 @@ function CustomIcons.CreateIcons(customConfig, isGlobal, iconType)
 	end
 end
 
+local function ProcessCustomIcon(id, config, validChildren)
+	local anchorGroup = config.anchorGroup or 1
+	local customFrames = CustomIcons.GetCustomIconFrames(config)
+	if not customFrames then
+		return
+	end
+
+	if customFrames[id] and DoesItemOrSpellExists(config) and ShouldLoadCustomIcon(config) then
+		local frame = customFrames[id]
+		local iconType = frame.SCMIconType
+		if iconType == "empty" then
+			Icons.SetChildVisibilityState(frame, true, true)
+			CDM.AddChildToScopedGroup(Cache.cachedChildrenTbl, anchorGroup, frame, frame.SCMGlobal)
+			CDM.AddChildToScopedGroup(validChildren, anchorGroup, frame, frame.SCMGlobal)
+			return
+		end
+
+		local iconTexture = GetCustomIconTexture(config, iconType, frame)
+		if not iconTexture and SCM.isOptionsOpen then
+			iconTexture = 134400
+		end
+
+		if iconTexture then
+			if frame.SCMIconTexture ~= iconTexture then
+				frame.SCMIconTexture = iconTexture
+				frame.Icon:SetTexture(iconTexture)
+				UpdateCustomIconCraftQuality(frame, iconType, config)
+			end
+			local hasCount = SetCustomIconCountText(frame, iconType, config)
+			local isOnCooldown = UpdateCustomIconCooldown(frame, iconType, config)
+			local shouldShow = ShouldShowCustomIcon(config, iconType, hasCount, isOnCooldown)
+
+			Icons.SetChildVisibilityState(frame, shouldShow, true)
+			CDM.AddChildToScopedGroup(Cache.cachedChildrenTbl, anchorGroup, frame, frame.SCMGlobal)
+
+			if shouldShow then
+				if iconType == "spell" then
+					C_Spell.EnableSpellRangeCheck(config.spellID, config.showOutOfRange or false)
+
+					UpdateCustomIconCharges(frame, config.spellID)
+				end
+
+				CDM.AddChildToScopedGroup(validChildren, anchorGroup, frame, frame.SCMGlobal)
+			end
+		else
+			Icons.SetChildVisibilityState(customFrames[id], false, true)
+		end
+	elseif customFrames[id] then
+		Icons.SetChildVisibilityState(customFrames[id], false, true)
+	end
+end
+
+local function ProcessCustomIconEntries(entries, validChildren)
+	if not entries then
+		return
+	end
+
+	for i = 1, #entries, 2 do
+		ProcessCustomIcon(entries[i], entries[i + 1], validChildren)
+	end
+end
+
+function CustomIcons.ProcessGroupIcons(group, validChildren)
+	if group then
+		ProcessCustomIconEntries(Cache.cachedCustomIconsByGroup[group], validChildren)
+		return
+	end
+
+	for _, entries in pairs(Cache.cachedCustomIconsByGroup) do
+		ProcessCustomIconEntries(entries, validChildren)
+	end
+end
+
 function CustomIcons.ProcessIcons(customConfig, validChildren, isGlobal)
 	for id, config in pairs(customConfig) do
 		local anchorGroup = config.anchorGroup or 1
-		local customFrames = CustomIcons.GetCustomIconFrames(config)
-		if customFrames then
-			if CDM.IsScopedAnchorGroupAllowed(anchorGroup, isGlobal) then
-				if customFrames[id] and DoesItemOrSpellExists(config) and ShouldLoadCustomIcon(config) then
-					local frame = customFrames[id]
-					local iconType = frame.SCMIconType
-					local iconTexture = GetCustomIconTexture(config, iconType, frame)
-					if not iconTexture and SCM.isOptionsOpen then
-						iconTexture = 134400
-					end
-
-					if iconTexture then
-						if frame.SCMIconTexture ~= iconTexture then
-							frame.SCMIconTexture = iconTexture
-							frame.Icon:SetTexture(iconTexture)
-							UpdateCustomIconCraftQuality(frame, iconType, config)
-						end
-						local hasCount = SetCustomIconCountText(frame, iconType, config)
-						local isOnCooldown = UpdateCustomIconCooldown(frame, iconType, config)
-						local shouldShow = ShouldShowCustomIcon(config, iconType, hasCount, isOnCooldown)
-
-						Icons.SetChildVisibilityState(frame, shouldShow, true)
-						CDM.AddChildToScopedGroup(Cache.cachedChildrenTbl, anchorGroup, frame, isGlobal)
-
-						if shouldShow then
-							if iconType == "spell" then
-								C_Spell.EnableSpellRangeCheck(config.spellID, config.showOutOfRange or false)
-
-								UpdateCustomIconCharges(frame, config.spellID)
-							end
-
-							CDM.AddChildToScopedGroup(validChildren, anchorGroup, frame, isGlobal)
-						end
-					else
-						Icons.SetChildVisibilityState(customFrames[id], false, true)
-					end
-				elseif customFrames[id] then
-					Icons.SetChildVisibilityState(customFrames[id], false, true)
-				end
-			end
+		if CDM.IsScopedAnchorGroupAllowed(anchorGroup, isGlobal) then
+			ProcessCustomIcon(id, config, validChildren)
 		end
 	end
 end
@@ -940,20 +1067,22 @@ local function UpdateCountTextForConfigTable(customConfig)
 	for id, config in pairs(customConfig) do
 		local frame = CustomItemFrames[id]
 		if frame and not frame.SCMReleased then
-			local previousItemID = frame.SCMItemID
-			local itemID = SetCustomItemID(frame, config)
-			if itemID ~= previousItemID then
-				UpdateCustomIconFrameState(frame, config)
-			end
-
 			local iconType = frame.SCMIconType
-			local hasCount = SetCustomIconCountText(frame, iconType, config)
-			local isOnCooldown = UpdateCustomIconCooldown(frame, iconType, config)
-			local shouldShow = ShouldShowCustomIcon(config, iconType, hasCount, isOnCooldown) and true or false
+			if iconType ~= "empty" then
+				local previousItemID = frame.SCMItemID
+				local itemID = SetCustomItemID(frame, config)
+				if itemID ~= previousItemID then
+					UpdateCustomIconFrameState(frame, config)
+				end
 
-			if frame.SCMShouldBeVisible ~= shouldShow then
-				Icons.SetChildVisibilityState(frame, shouldShow, true)
-				visibilityChanged = true
+				local hasCount = SetCustomIconCountText(frame, iconType, config)
+				local isOnCooldown = UpdateCustomIconCooldown(frame, iconType, config)
+				local shouldShow = ShouldShowCustomIcon(config, iconType, hasCount, isOnCooldown) and true or false
+
+				if frame.SCMShouldBeVisible ~= shouldShow then
+					Icons.SetChildVisibilityState(frame, shouldShow, true)
+					visibilityChanged = true
+				end
 			end
 		end
 	end

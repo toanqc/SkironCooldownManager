@@ -49,7 +49,7 @@ function SCM.Decode(importString)
 end
 
 function SCM:AddGlobalAnchor(anchorTabsTbl)
-	local anchorConfig = self.db.global.globalAnchorConfig
+	local anchorConfig = self.db.profile.globalAnchorConfig
 	local nextIndex = #anchorConfig + 1
 	anchorConfig[nextIndex] = {
 		anchor = { "CENTER", "UIParent", "CENTER", 0, 0 },
@@ -101,8 +101,8 @@ local function RemoveDeletedAnchorCustomConfig(configTable, anchorIndex)
 end
 
 function SCM:RemoveGlobalAnchor(anchorIndex, anchorTabsTbl)
-	if self.db.global.globalAnchorConfig[anchorIndex] then
-		tremove(self.db.global.globalAnchorConfig, anchorIndex)
+	if self.db.profile.globalAnchorConfig[anchorIndex] then
+		tremove(self.db.profile.globalAnchorConfig, anchorIndex)
 	end
 
 	local globalAnchorIndex = ToGlobalGroup(#anchorTabsTbl)
@@ -110,10 +110,10 @@ function SCM:RemoveGlobalAnchor(anchorIndex, anchorTabsTbl)
 	self.anchorFrames[globalAnchorIndex] = nil
 
 	for _, globalConfig in pairs({
-		self.db.global.globalCustomConfig.spellConfig,
-		self.db.global.globalCustomConfig.itemConfig,
-		self.db.global.globalCustomConfig.slotConfig,
-		self.db.global.globalCustomConfig.timerConfig,
+		self.db.profile.globalCustomConfig.spellConfig,
+		self.db.profile.globalCustomConfig.itemConfig,
+		self.db.profile.globalCustomConfig.slotConfig,
+		self.db.profile.globalCustomConfig.timerConfig,
 	}) do
 		RemoveDeletedAnchorCustomConfig(globalConfig, anchorIndex)
 	end
@@ -361,6 +361,11 @@ function SCM:GetHideWhenInactive()
 	return LibEditModeOverride:GetFrameSetting(BuffIconCooldownViewer, Enum.EditModeCooldownViewerSetting.HideWhenInactive)
 end
 
+function SCM:GetShowTooltip()
+	LibEditModeOverride:LoadLayouts()
+	return LibEditModeOverride:GetFrameSetting(BuffIconCooldownViewer, Enum.EditModeCooldownViewerSetting.ShowTooltips)
+end
+
 function SCM:SetHideWhenInactive(value)
 	LibEditModeOverride:LoadLayouts()
 
@@ -368,6 +373,18 @@ function SCM:SetHideWhenInactive(value)
 		local currentSetting = LibEditModeOverride:GetFrameSetting(BuffIconCooldownViewer, Enum.EditModeCooldownViewerSetting.HideWhenInactive)
 		if (value and currentSetting == 1) or (not value and currentSetting == 0) then
 			LibEditModeOverride:SetFrameSetting(BuffIconCooldownViewer, Enum.EditModeCooldownViewerSetting.HideWhenInactive, value and 0 or 1)
+			LibEditModeOverride:SaveOnly()
+			LibEditModeOverride:ApplyChanges()
+		end
+	end
+end
+
+function SCM:SetBuffBarContent(value)
+	LibEditModeOverride:LoadLayouts()
+	if LibEditModeOverride:CanEditActiveLayout() then
+		local currentSetting = LibEditModeOverride:GetFrameSetting(BuffBarCooldownViewer, Enum.EditModeCooldownViewerSetting.BarContent)
+		if value ~= currentSetting then
+			LibEditModeOverride:SetFrameSetting(BuffBarCooldownViewer, Enum.EditModeCooldownViewerSetting.BarContent, value)
 			LibEditModeOverride:SaveOnly()
 			LibEditModeOverride:ApplyChanges()
 		end
@@ -431,6 +448,7 @@ function SCM:ApplyOptions()
 
 	local options = self.db.profile.options
 	self:SetHideWhenInactive(options.hideBuffsWhenInactive)
+	self:SetBuffBarContent(options.buffBarContent)
 	self:ApplyAttributeDriver(options.hideWhileMounted)
 	self.Cooldowns:ApplyFormatterSettings()
 end
@@ -450,7 +468,9 @@ local function OpenOptions()
 	SCM.OptionsFrame = frame
 	LibWindow.RegisterConfig(frame.frame, options.optionsWindow)
 	LibWindow.SetScale(frame.frame, options.menuScale)
-	frame.frame.TitleContainer:HookScript("OnMouseUp", function() LibWindow.SavePosition(frame.frame) end)
+	frame.frame.TitleContainer:HookScript("OnMouseUp", function()
+		LibWindow.SavePosition(frame.frame)
+	end)
 
 	if options.savePosition then
 		LibWindow.RestorePosition(frame.frame)

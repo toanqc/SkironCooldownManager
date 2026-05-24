@@ -483,7 +483,7 @@ local function SelectGlobalSettingsTab(tabWidget, group, options)
 		tabWidget:AddChild(iconSettings)
 
 		local iconZoom = AceGUI:Create("Slider")
-		iconZoom:SetRelativeWidth(0.33)
+		iconZoom:SetRelativeWidth(0.25)
 		iconZoom:SetValue(options.iconZoom or 1)
 		iconZoom:SetLabel("Zoom")
 		iconZoom:SetSliderValues(0.01, 0.4, 0.01)
@@ -495,7 +495,7 @@ local function SelectGlobalSettingsTab(tabWidget, group, options)
 		iconSettings:AddChild(iconZoom)
 
 		local iconFrameStrata = AceGUI:Create("Dropdown")
-		iconFrameStrata:SetRelativeWidth(0.33)
+		iconFrameStrata:SetRelativeWidth(0.25)
 		iconFrameStrata:SetLabel("Frame Strata")
 		iconFrameStrata:SetList(SCM.Constants.FrameStrata, SCM.Constants.FrameStrataSorted)
 		iconFrameStrata:SetValue(options.iconFrameStrata or "")
@@ -506,7 +506,7 @@ local function SelectGlobalSettingsTab(tabWidget, group, options)
 		iconSettings:AddChild(iconFrameStrata)
 
 		local keepIconSquareRatio = AceGUI:Create("CheckBox")
-		keepIconSquareRatio:SetRelativeWidth(0.33)
+		keepIconSquareRatio:SetRelativeWidth(0.25)
 		keepIconSquareRatio:SetLabel("Keep Icon Square Ratio")
 		keepIconSquareRatio:SetValue(options.keepIconSquareRatio)
 		keepIconSquareRatio:SetCallback("OnValueChanged", function(_, _, value)
@@ -514,6 +514,16 @@ local function SelectGlobalSettingsTab(tabWidget, group, options)
 			SCM:ApplyAllCDManagerConfigs()
 		end)
 		iconSettings:AddChild(keepIconSquareRatio)
+
+		local experimentalPixelSettings  = AceGUI:Create("CheckBox")
+		experimentalPixelSettings:SetRelativeWidth(0.25)
+		experimentalPixelSettings:SetLabel("Experimental Skinning")
+		experimentalPixelSettings:SetValue(options.experimentalPixelSettings)
+		experimentalPixelSettings:SetCallback("OnValueChanged", function(_, _, value)
+			options.experimentalPixelSettings = value
+			SCM:ApplyAllCDManagerConfigs()
+		end)
+		iconSettings:AddChild(experimentalPixelSettings)
 
 		local borderSettings = AceGUI:Create("InlineGroup")
 		borderSettings:SetLayout("flow")
@@ -1050,6 +1060,25 @@ local function SelectGlobalSettingsTab(tabWidget, group, options)
 
 	elseif group == "BuffBar" then
 		local buffBarOptions = options.buffBarOptions
+
+		local generalSettings = AceGUI:Create("InlineGroup")
+		generalSettings:SetLayout("flow")
+		generalSettings:SetFullWidth(true)
+		generalSettings:SetTitle("General")
+		tabWidget:AddChild(generalSettings)
+
+		local buffBarContent = AceGUI:Create("Dropdown")
+		buffBarContent:SetList(SCM.Constants.BuffBarContent)
+		buffBarContent:SetRelativeWidth(0.5)
+		buffBarContent:SetLabel("Bar Type")
+		buffBarContent:SetValue(options.buffBarContent)
+		buffBarContent:SetCallback("OnValueChanged", function(_, _, value)
+			options.buffBarContent = value
+
+			SCM:SetBuffBarContent(value)
+			SCM:SkinBuffBars()
+		end)
+		generalSettings:AddChild(buffBarContent)
 
 		local textureSettings = AceGUI:Create("InlineGroup")
 		textureSettings:SetLayout("flow")

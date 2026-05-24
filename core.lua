@@ -40,7 +40,7 @@ end
 
 local function OnCooldownViewerSettingsRefreshLayout(self)
 	SCM:ClearChildrenCache()
-	SCM:UpdateCooldownInfo(true, self:GetDataProvider())
+	SCM:UpdateCooldownInfo(true)
 	SCM:UpdateDB()
 	SCM:ApplyAllCDManagerConfigs()
 end
@@ -86,15 +86,15 @@ end
 
 local function RefreshCooldownViewerData(releaseCustomIcons)
 	SCM:InvalidateAnchorLinks()
-	SCM:ClearViewerChildrenCache()
-	SCM:UpdateCooldownInfo(true, CooldownViewerSettings:GetDataProvider())
+	SCM:UpdateCooldownInfo(true)
 	SCM:UpdateDB()
 
 	if releaseCustomIcons then
+		SCM:ResetCooldownViewerRuntimeState()
 		SCM.CustomIcons.ReleaseAllIcons()
 	end
 	SCM:CreateAllCustomIcons()
-	SCM:ApplyAllCDManagerConfigs()
+	SCM:ApplyAllCDManagerConfigs(true)
 	SCM:UpdateCastBar()
 	SCM:RefreshResourceBarConfig()
 end
@@ -120,7 +120,7 @@ end
 function SCM:PLAYER_ENTERING_WORLD(isInitialLogin, isReload)
 	if isInitialLogin or isReload then
 		--SCM.Cache.cachedViewerScale = SCM:PixelPerfect()
-		SCM:UpdateCooldownInfo(true, CooldownViewerSettings:GetDataProvider())
+		SCM:UpdateCooldownInfo(true)
 		SCM:UpdateDB()
 
 		SCM:CreateAllCustomIcons()
@@ -145,11 +145,42 @@ function SCM:UNIT_SPELLCAST_SUCCEEDED(_, _, spellID)
 	SCM:ApplySuccessfulCastBySpellID(spellID)
 end
 
-function SCM:SPELL_UPDATE_COOLDOWN(spellID)
-	local predicate = function(config)
-		return config.spellID == spellID or config.iconType == "item"
+local isSpellCooldownUpdateThrottled = false
+local pendingSpellCooldownIDs = {}
+
+local function PendingSpellCooldownPredicate(config)
+	return pendingSpellCooldownIDs[config.spellID]
+end
+
+local function OnSpellCooldownUpdateThrottleTick()
+	if not next(pendingSpellCooldownIDs) then
+		isSpellCooldownUpdateThrottled = false
+		return
 	end
 
+	isSpellCooldownUpdateThrottled = true
+	C_Timer.After(0.1, OnSpellCooldownUpdateThrottleTick)
+	SCM:ApplyAnchorGroupByIconTypes(false, PendingSpellCooldownPredicate, "spell", "item", "slot")
+	SCM:UpdateCustomIconsGCD()
+	wipe(pendingSpellCooldownIDs)
+end
+
+function SCM:SPELL_UPDATE_COOLDOWN(spellID)
+	if not spellID then
+		return
+	end
+
+	if isSpellCooldownUpdateThrottled then
+		pendingSpellCooldownIDs[spellID] = true
+		return
+	end
+
+	local predicate = function(config)
+		return config.spellID == spellID
+	end
+
+	isSpellCooldownUpdateThrottled = true
+	C_Timer.After(0.1, OnSpellCooldownUpdateThrottleTick)
 	SCM:ApplyAnchorGroupByIconTypes(false, predicate, "spell", "item", "slot")
 	SCM:UpdateCustomIconsGCD()
 end
@@ -166,15 +197,19 @@ function SCM:SPELL_UPDATE_CHARGES()
 	SCM:ApplyAnchorGroupByIconTypes(false, nil, "spell")
 end
 
+function SCM:SPELL_UPDATE_USES(spellID, baseSpellID)
+	SCM.CustomIcons.UpdateSpellUses(spellID, baseSpellID)
+end
+
 function SCM:PLAYER_EQUIPMENT_CHANGED()
-	SCM:CreateAllCustomIcons()
-	SCM:ApplyAllCDManagerConfigs()
+	SCM:CreateAllCustomIcons("slot")
+	SCM:ApplyAnchorGroupByIconType("slot")
 end
 
 function SCM:PLAYER_EQUIPED_SPELLS_CHANGED()
 	C_Timer.After(0.1, function()
 		SCM:CreateAllCustomIcons("slot")
-		SCM:ApplyAllCDManagerConfigs()
+		SCM:ApplyAnchorGroupByIconType("slot")
 	end)
 
 	eventFrame:UnregisterEvent("PLAYER_EQUIPED_SPELLS_CHANGED")
@@ -209,16 +244,7 @@ function SCM:TRAIT_CONFIG_UPDATED()
 end
 
 function SCM:ACTIVE_PLAYER_SPECIALIZATION_CHANGED()
-	for _, viewerName in ipairs({ "EssentialCooldownViewer", "UtilityCooldownViewer", "BuffIconCooldownViewer", "BuffBarCooldownViewer" }) do
-		local viewer = _G[viewerName]
-		if viewer then
-			local children = SCM.Cache.cachedViewerChildren[viewer] or { viewer:GetChildren() }
-			for _, child in ipairs(children) do
-				SCM.Utils.ResetChildSCMState(child)
-			end
-			SCM:InvalidateViewerChildrenCache(viewer)
-		end
-	end
+	SCM:ResetCooldownViewerRuntimeState()
 
 	C_Timer.After(0.5, function()
 		RefreshCooldownViewerData(true)
@@ -309,6 +335,7 @@ EventUtil.ContinueOnAddOnLoaded(addonName, function()
 	eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 	eventFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 	eventFrame:RegisterEvent("SPELL_UPDATE_CHARGES")
+	eventFrame:RegisterEvent("SPELL_UPDATE_USES")
 	eventFrame:RegisterEvent("SPELL_UPDATE_USABLE")
 	eventFrame:RegisterEvent("SPELL_RANGE_CHECK_UPDATE")
 	eventFrame:RegisterEvent("COOLDOWN_VIEWER_SPELL_OVERRIDE_UPDATED")
@@ -349,7 +376,7 @@ function SCM:GetConfigTableByID(configID, iconType, isGlobal)
 	return configTable and configTable[configID]
 end
 
-function SCM:UpdateCooldownInfo(isFirstLoad, dataProvider)
+function SCM:UpdateCooldownInfo(isFirstLoad)
 	if InCombatLockdown() then
 		return
 	end
@@ -359,6 +386,7 @@ function SCM:UpdateCooldownInfo(isFirstLoad, dataProvider)
 		spellIDs = {},
 	}
 
+	local dataProvider = CooldownViewerSettings:GetDataProvider()
 	local displayData = dataProvider and dataProvider.displayData.cooldownInfoByID
 	for _, cooldownCategory in pairs(CooldownViewerSettingsDataProvider_GetCategories()) do
 		self.defaultCooldownViewerConfig[cooldownCategory] = {

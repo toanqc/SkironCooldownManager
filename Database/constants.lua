@@ -83,6 +83,25 @@ Constants.TextOutlineSorted = {
 	"THICKOUTLINE",
 }
 
+Constants.BlendMode = {
+	["DISABLE"] = "DISABLE",
+	["BLEND"] = "BLEND",
+	["ADD"] = "ADD",
+	["MOD"] = "MOD",
+}
+
+Constants.BlendModeSorted = {
+	"DISABLE",
+	"BLEND",
+	"ADD",
+	"MOD"
+}
+
+Constants.BuffBarContent = {
+	[Enum.CooldownViewerBarContent.IconAndName] = "Bar + Icon",
+	[Enum.CooldownViewerBarContent.NameOnly] = "Bar Only"
+}
+
 Constants.ResourceBarGrowthDirection = {
 	UP = "Up",
 	DOWN = "Down",
@@ -542,4 +561,12 @@ Constants.FakeAuras = {
 
 Constants.TargetAuras = {
 	[1160] = true,
+}
+
+-- Blizzard randomly clears those cooldowns and I have to fix it. Fun :)
+Constants.FixBlizzardSpells = {
+	[202137] = true, -- Sigil of Silence
+	[204596] = true, -- Sigil of Flame
+	[207684] = true, -- Sigil or Misery
+	[325153] = true, -- Exploding Keg
 }

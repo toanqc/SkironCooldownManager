@@ -15,9 +15,11 @@ Cache.cachedAnchorLinks = {}
 Cache.cachedAnchorLinksDirty = true
 Cache.cachedAnchorQueue = {}
 Cache.cachedAnchorOffsetVisited = {}
+Cache.cachedParsedAnchorStrings = {}
 Cache.cachedCustomSpellEntriesBySpellID = {}
 Cache.cachedCustomItemEntriesByItemID = {}
 Cache.cachedCustomSlotEntriesByItemID = {}
+Cache.cachedCustomIconsByGroup = {}
 Cache.customIconRequests = {}
 Cache.scopedGroupTables = {}
 Cache.cachedScopedAnchorGroups = {
@@ -33,6 +35,37 @@ end
 
 function SCM:ClearViewerChildrenCache()
 	wipe(Cache.cachedViewerChildren)
+end
+
+function SCM:ResetCooldownViewerRuntimeState()
+	local resetChild = self.Utils.ResetChildSCMState
+	for viewerName in pairs(SCM.CooldownViewerNameToIndex) do
+		local viewer = _G[viewerName]
+		if viewer then
+			local cachedChildren = Cache.cachedViewerChildren[viewer]
+			if cachedChildren then
+				for _, child in ipairs(cachedChildren) do
+					resetChild(child)
+				end
+			end
+
+			for _, child in ipairs({ viewer:GetChildren() }) do
+				resetChild(child)
+			end
+		end
+	end
+
+	wipe(Cache.cachedViewerChildren)
+	wipe(Cache.cachedChildrenTbl)
+	wipe(Cache.cachedCooldownFrameTbl)
+	wipe(Cache.cachedVisitedAnchorGroups)
+	wipe(Cache.cachedVisibleChildren)
+	wipe(Cache.cachedAnchorChildren)
+
+	for _, state in pairs(Cache.cachedAnchorStates) do
+		state.layoutSignature = nil
+		state.visibleChildCount = nil
+	end
 end
 
 function SCM:InvalidateViewerChildrenCache(viewer)

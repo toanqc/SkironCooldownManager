@@ -8,6 +8,13 @@ local Constants = SCM.Constants
 local NumericRuleFormatter = C_StringUtil.CreateNumericRuleFormatter()
 Cooldowns.NumericRuleFormatter = NumericRuleFormatter
 
+function Cooldowns.ApplyNumericRuleFormatter(cooldownFrame)
+	if cooldownFrame and cooldownFrame.SetCountdownFormatter and not cooldownFrame.SCMFormatter then
+		cooldownFrame.SCMFormatter = true
+		cooldownFrame:SetCountdownFormatter(NumericRuleFormatter)
+	end
+end
+
 function Cooldowns:ApplyFormatterSettings()
 	local options = SCM.db.profile.options
 
@@ -30,13 +37,13 @@ local function OnBuffCooldownSet(self)
 
 		if parent.SCMConfig.showWhileInactive then
 			Icons.HideChild(parent)
-			SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup)
+			SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup, nil, parent.viewerFrame and parent.viewerFrame.SCMUpdateScope)
 		end
 	elseif parent.SCMHidden then
 		Icons.ShowChild(parent)
 		Icons.UpdateChildDesaturation(parent, false)
 		Icons.UpdateChildGlow(parent, false)
-		SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup)
+		SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup, nil, parent.viewerFrame and parent.viewerFrame.SCMUpdateScope)
 	end
 end
 
@@ -63,7 +70,7 @@ local function OnBuffCooldownEnd(self)
 
 	--local options = parent.SCMBuffOptions
 	if not parent.SCMHidden or (parent.SCMHidden and parent.SCMConfig.showWhileInactive) then
-		SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup)
+		SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup, nil, parent.viewerFrame and parent.viewerFrame.SCMUpdateScope)
 	end
 end
 
@@ -156,18 +163,16 @@ function Cooldowns.SetNormalCooldown(self, parent)
 	local durationObject
 	local desaturate = false
 
-	if cooldownData.charges then
+	local spellCooldown = C_Spell.GetSpellCooldown(parent.SCMSpellID)
+	if spellCooldown and spellCooldown.isActive and not spellCooldown.isOnGCD then
+		desaturate = true
+		durationObject = C_Spell.GetSpellCooldownDuration(parent.SCMSpellID, true)
+	end
+
+	if cooldownData.charges and not durationObject then
 		local spellCharges = C_Spell.GetSpellCharges(parent.SCMSpellID)
 		if spellCharges and spellCharges.isActive and not spellCharges.isOnGCD then
 			durationObject = C_Spell.GetSpellChargeDuration(parent.SCMSpellID, true)
-		end
-	end
-
-	if not durationObject then
-		local spellCooldown = C_Spell.GetSpellCooldown(parent.SCMSpellID)
-		if spellCooldown and spellCooldown.isActive and not spellCooldown.isOnGCD then
-			desaturate = true
-			durationObject = C_Spell.GetSpellCooldownDuration(parent.SCMSpellID, true)
 		end
 	end
 
@@ -222,18 +227,19 @@ function Cooldowns.OverwriteRegularChildCooldownBySpellID(spellID, overrideSpell
 	OverwriteViewerChildCooldown(UtilityCooldownViewer, spellID, cooldownInfo)
 end
 
-local function OnRegularCooldownChanged(self)
+local function OnRegularCooldownChanged(self, changeType)
 	local parent = self:GetParent()
 	if not (parent and parent.SCMConfig) or self.SCMSettingRegularSpellCooldown or self.SCMClearingGCD then
 		return
 	end
 
 	local options = SCM.db.profile.options
-	if options.disableRegularIconActiveSwipe and not parent.SCMConfig.forceActiveSwipe and self:GetUseAuraDisplayTime() then
+	local useAuraDisplayTime = self:GetUseAuraDisplayTime()
+	if options.disableRegularIconActiveSwipe and not parent.SCMConfig.forceActiveSwipe and useAuraDisplayTime then
 		Cooldowns.OverrideRegularAuraCooldown(self, parent, options)
-	elseif options.disableGCD then
+	elseif options.disableGCD or (changeType == "CLEAR" and Constants.FixBlizzardSpells[parent.SCMSpellID]) then
 		Cooldowns.SetNormalCooldown(self, parent)
-	elseif parent.Icon.SCMDesaturated and not self:GetUseAuraDisplayTime() then
+	elseif parent.Icon.SCMDesaturated and not useAuraDisplayTime then
 		parent.Icon.SCMDesaturated = nil
 		parent.Icon:SetDesaturated(false)
 	end
@@ -249,13 +255,15 @@ local function OnRegularCooldownChanged(self)
 				elseif viewer == UtilityCooldownViewer then
 					SCM:ApplyUtilityCDManagerConfig()
 				end
+			elseif parent.SCMGroup then
+				SCM:ApplyAnchorGroupCDManagerConfig(parent.SCMGroup, parent.SCMGlobal)
 			else
 				SCM:ApplyAllCDManagerConfigs()
 			end
 		end
 	end
 
-	Icons.UpdateChildGlow(parent, not self:GetUseAuraDisplayTime())
+	Icons.UpdateChildGlow(parent, not useAuraDisplayTime)
 end
 
 function Cooldowns.SetupCooldownHooks(child)
@@ -263,8 +271,12 @@ function Cooldowns.SetupCooldownHooks(child)
 		return
 	end
 
-	hooksecurefunc(child.Cooldown, "SetCooldown", OnRegularCooldownChanged)
-	hooksecurefunc(child.Cooldown, "Clear", OnRegularCooldownChanged)
+	hooksecurefunc(child.Cooldown, "SetCooldown", function(self)
+		OnRegularCooldownChanged(self, "SET")
+	end)
+	hooksecurefunc(child.Cooldown, "Clear", function(self)
+		OnRegularCooldownChanged(self, "CLEAR")
+	end)
 
 	child.Cooldown:HookScript("OnCooldownDone", function(self, ...)
 		local parent = self:GetParent()
