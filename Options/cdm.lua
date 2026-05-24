@@ -150,6 +150,12 @@ local function BuildSlotIconData(slotID)
 	}
 end
 
+local function BuildEmptyIconData()
+	return {
+		texture = 134400,
+	}
+end
+
 local customButtonConfigs = {
 	{
 		text = "Spell",
@@ -183,11 +189,16 @@ local customButtonConfigs = {
 			GameTooltip_AddInstructionLine(tooltip, "Timers can only be created based on successful casts.")
 		end,
 	},
+	{
+		text = "Empty",
+		iconType = "empty",
+		buildIconData = BuildEmptyIconData,
+	},
 }
 
 local function CreateCustomIconButton(rootDescription, scrollFrame, anchorIndex, isGlobal, buttonConfig)
 	local button = rootDescription:CreateButton(buttonConfig.text, function()
-		ShowNumericInputPopup(buttonConfig.popupKey, buttonConfig.popupTitle, function(configID)
+		local function AddCustomIcon(configID)
 			local iconData = buttonConfig.buildIconData(configID)
 			if not iconData then
 				return
@@ -209,7 +220,13 @@ local function CreateCustomIconButton(rootDescription, scrollFrame, anchorIndex,
 			insertedData.id = uniqueID
 
 			SCM:ApplyAnchorGroupCDManagerConfig(anchorIndex, isGlobal)
-		end)
+		end
+
+		if buttonConfig.popupKey then
+			ShowNumericInputPopup(buttonConfig.popupKey, buttonConfig.popupTitle, AddCustomIcon)
+		elseif buttonConfig.iconType == "empty" then
+			AddCustomIcon("")
+		end
 	end)
 
 	if buttonConfig.tooltip then

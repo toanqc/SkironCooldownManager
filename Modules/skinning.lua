@@ -170,7 +170,7 @@ local function ApplyCooldownStyle(child, options)
 end
 
 local function ApplyZoomSettings(child, options)
-	local iconZoom = SCM:PixelPerfect(options.iconZoom)
+	local iconZoom = options.experimentalPixelSettings and options.iconZoom or SCM:PixelPerfect(options.iconZoom)
 
 	if options.keepIconSquareRatio and child.SCMWidth and child.SCMHeight then
 		local xCrop = 1 - iconZoom
@@ -211,13 +211,14 @@ function SCM:SkinChild(child, childConfig)
 	end
 
 	local borderSize = options.experimentalPixelSettings and options.borderSize or SCM:PixelPerfect(options.borderSize)
+	if child.SCMCustom and child.SCMIconType == "empty" then
+		borderSize = 0
+	end
+
 	local borderColor = options.borderColor
 
 	if not child.SCMSkinned or (child.SCMSkinned and self.OptionsFrame ~= nil and self.OptionsFrame:IsShown()) then
 		child.SCMSkinned = true
-
-		local iconZoom = options.iconZoom
-		child.Icon:SetTexCoord(iconZoom, 1 - iconZoom, iconZoom, 1 - iconZoom)
 
 		child.Cooldown:ClearAllPoints()
 		child.Cooldown:SetAllPoints(child)
@@ -462,6 +463,4 @@ end
 
 function SCM:SkinBuffBars()
 	for _, child in ipairs({ BuffBarCooldownViewer:GetChildren() }) do
-		self:SkinBuffBar(child)
-	end
-end
+		self:Skin

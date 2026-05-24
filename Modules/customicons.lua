@@ -116,6 +116,10 @@ local function OnCustomIconShow(self)
 		return
 	end
 
+	if self.SCMIconType == "empty" then
+		return
+	end
+
 	if not ShouldShowCustomIcon(self.SCMConfig, self.SCMIconType, nil, nil, self) then
 		Icons.SetChildVisibilityState(self, false, true)
 	end
@@ -390,7 +394,7 @@ local function UpdateCustomIconCooldown(frame, iconType, config)
 					else
 						frame.Cooldown:SetCooldown(startTime, duration)
 					end
-					
+
 					frame.Icon:SetVertexColor(1, 1, 1)
 					frame.Icon:SetDesaturated(true)
 				end
@@ -478,6 +482,10 @@ end
 
 local function DoesItemOrSpellExists(config)
 	local iconType = GetIconType(config)
+	if iconType == "empty" then
+		return true
+	end
+
 	if iconType == "spell" or iconType == "timer" then
 		return config.spellID and C_Spell.DoesSpellExist(config.spellID)
 	end
@@ -604,6 +612,13 @@ local function ConfigureCustomIconFrame(frame, id, config, viewerScale, anchorGr
 	frame.SCMGlobal = isGlobal and true or nil
 	frame.SCMCustom = true
 
+	if frame.SCMIconType == "empty" then
+		frame:SetBackdrop(nil)
+	else
+		frame:SetBackdrop(frame.backdropInfo)
+		frame:SetBackdropBorderColor(frame.backdropBorderColor:GetRGBA())
+	end
+
 	if frame.SCMIconType == "item" then
 		SetCustomItemID(frame, config)
 	elseif config.slotID then
@@ -616,6 +631,10 @@ end
 
 local function UpdateCustomIconFrameState(frame, config)
 	local iconType = frame.SCMIconType
+	if iconType == "empty" then
+		return
+	end
+
 	local iconTexture = GetCustomIconTexture(config, iconType, frame)
 	if not iconTexture then
 		iconTexture = 134400
@@ -820,7 +839,7 @@ local function CreateCustomIcon(id, config, isGlobal, skipExisting)
 			ConfigureCustomIconFrame(frame, id, config, 1, config.anchorGroup or 1, isGlobal)
 			UpdateCustomIconFrameState(frame, config)
 			ApplyGlobalSettings(frame)
-			Icons.SetChildVisibilityState(frame, false, true)
+			Icons.SetChildVisibilityState(frame, frame.SCMIconType == "empty", true)
 		elseif customFrames[id] then
 			ReleaseCustomIconFrame(customFrames[id])
 		end
@@ -881,6 +900,13 @@ local function ProcessCustomIcon(id, config, validChildren)
 	if customFrames[id] and DoesItemOrSpellExists(config) and ShouldLoadCustomIcon(config) then
 		local frame = customFrames[id]
 		local iconType = frame.SCMIconType
+		if iconType == "empty" then
+			Icons.SetChildVisibilityState(frame, true, true)
+			CDM.AddChildToScopedGroup(Cache.cachedChildrenTbl, anchorGroup, frame, frame.SCMGlobal)
+			CDM.AddChildToScopedGroup(validChildren, anchorGroup, frame, frame.SCMGlobal)
+			return
+		end
+
 		local iconTexture = GetCustomIconTexture(config, iconType, frame)
 		if not iconTexture and SCM.isOptionsOpen then
 			iconTexture = 134400
@@ -1028,20 +1054,22 @@ local function UpdateCountTextForConfigTable(customConfig)
 	for id, config in pairs(customConfig) do
 		local frame = CustomItemFrames[id]
 		if frame and not frame.SCMReleased then
-			local previousItemID = frame.SCMItemID
-			local itemID = SetCustomItemID(frame, config)
-			if itemID ~= previousItemID then
-				UpdateCustomIconFrameState(frame, config)
-			end
-
 			local iconType = frame.SCMIconType
-			local hasCount = SetCustomIconCountText(frame, iconType, config)
-			local isOnCooldown = UpdateCustomIconCooldown(frame, iconType, config)
-			local shouldShow = ShouldShowCustomIcon(config, iconType, hasCount, isOnCooldown) and true or false
+			if iconType ~= "empty" then
+				local previousItemID = frame.SCMItemID
+				local itemID = SetCustomItemID(frame, config)
+				if itemID ~= previousItemID then
+					UpdateCustomIconFrameState(frame, config)
+				end
 
-			if frame.SCMShouldBeVisible ~= shouldShow then
-				Icons.SetChildVisibilityState(frame, shouldShow, true)
-				visibilityChanged = true
+				local hasCount = SetCustomIconCountText(frame, iconType, config)
+				local isOnCooldown = UpdateCustomIconCooldown(frame, iconType, config)
+				local shouldShow = ShouldShowCustomIcon(config, iconType, hasCount, isOnCooldown) and true or false
+
+				if frame.SCMShouldBeVisible ~= shouldShow then
+					Icons.SetChildVisibilityState(frame, shouldShow, true)
+					visibilityChanged = true
+				end
 			end
 		end
 	end
