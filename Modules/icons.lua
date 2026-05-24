@@ -321,7 +321,7 @@ local function ProcessBuffIcon(child, childData, options)
 	if child.SCMCheckCooldownFrame then
 		isInactive = not child.Cooldown:IsVisible()
 	else
-		isInactive = not child.auraInstanceID
+		isInactive = not child.auraInstanceID or not child.auraDataUnit
 	end
 
 	local forceShow = SCM.simulateBuffs or (not SCM.isHideWhenInactiveEnabled and childData.alwaysShow)
