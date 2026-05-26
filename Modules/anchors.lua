@@ -27,6 +27,7 @@ end
 function SCM:UpdateUUFValues(options, maxGroupWidth, rowConfig)
 	local offset = min((maxGroupWidth - 150), 0)
 	local mainAnchor = SCM:GetAnchor(1)
+	local height = floor(SCM:PixelPerfect(rowConfig[1].iconHeight or rowConfig[1].size) + 0.5)
 
 	if UUF_Player then
 		if options.anchorUUF and options.anchorUUFRoles[(select(5, Utils.GetSpec()))] then
@@ -39,7 +40,6 @@ function SCM:UpdateUUFValues(options, maxGroupWidth, rowConfig)
 
 			mainAnchor.SetPoint(UUF_Player, "TOPRIGHT", mainAnchor, "TOPLEFT", offset - options.temporaryPadding, 0)
 
-			local height = rowConfig[1].iconHeight or rowConfig[1].size
 			UUF_Player.SCMOffset = offset - options.temporaryPadding
 			UUF_Player.SCMHeight = height
 			UUF_Player.SCMAnchor = mainAnchor
@@ -55,7 +55,7 @@ function SCM:UpdateUUFValues(options, maxGroupWidth, rowConfig)
 			if not UUF_Player.SCMHook then
 				UUF_Player.SCMHook = true
 				hooksecurefunc(UUF_Player, "SetPoint", function(self)
-					if options.anchorUUF and options.anchorUUFRoles and  options.anchorUUFRoles[(select(5, Utils.GetSpec()))] then
+					if options.anchorUUF and options.anchorUUFRoles and options.anchorUUFRoles[(select(5, Utils.GetSpec()))] then
 						self.SCMAnchor.SetPoint(self, "TOPRIGHT", self.SCMAnchor, "TOPLEFT", self.SCMOffset, 0)
 						if options.adjustHeight then
 							self.SCMAnchor.SetHeight(self, self.SCMHeight)
@@ -103,7 +103,6 @@ function SCM:UpdateUUFValues(options, maxGroupWidth, rowConfig)
 			UUF_Target:ClearAllPoints()
 			mainAnchor.SetPoint(UUF_Target, "TOPLEFT", mainAnchor, "TOPRIGHT", -offset + options.temporaryPadding, 0)
 
-			local height = rowConfig[1].iconHeight or rowConfig[1].size
 			UUF_Target.SCMOffset = -offset + options.temporaryPadding
 			UUF_Target.SCMHeight = height
 			UUF_Target.SCMAnchor = mainAnchor
@@ -118,7 +117,7 @@ function SCM:UpdateUUFValues(options, maxGroupWidth, rowConfig)
 			if not UUF_Target.SCMHook then
 				UUF_Target.SCMHook = true
 				hooksecurefunc(UUF_Target, "SetPoint", function(self)
-					if options.anchorUUF and options.anchorUUFRoles and  options.anchorUUFRoles[(select(5, Utils.GetSpec()))] then
+					if options.anchorUUF and options.anchorUUFRoles and options.anchorUUFRoles[(select(5, Utils.GetSpec()))] then
 						self.SCMAnchor.SetPoint(self, "TOPLEFT", self.SCMAnchor, "TOPRIGHT", self.SCMOffset, 0)
 
 						if options.adjustHeight then
@@ -170,8 +169,8 @@ function SCM:UpdateUUFValues(options, maxGroupWidth, rowConfig)
 			end
 
 			if options.adjustHeight then
-				E.db.unitframe.units.player.height = rowConfig[1].size
-				E.db.unitframe.units.target.height = rowConfig[1].size
+				E.db.unitframe.units.player.height = height
+				E.db.unitframe.units.target.height = height
 			end
 
 			local UF = E:GetModule("UnitFrames")
