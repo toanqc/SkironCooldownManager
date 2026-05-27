@@ -466,7 +466,7 @@ local function UpdateSpellChargeRecharge(bar, chargeInfo)
 		bar.RechargeSegment = segment
 	end
 
-	segment:SetFrameLevel(bar:GetFrameLevel() + 1)
+	segment:SetFrameLevel(bar:GetFrameLevel())
 	segment:ClearAllPoints()
 	segment:SetPoint("LEFT", statusBarTexture, "RIGHT", 0, 0)
 	segment:SetWidth(segmentWidth)
