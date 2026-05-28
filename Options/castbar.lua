@@ -691,7 +691,7 @@ local function CastBar(self)
 	borderSize:SetRelativeWidth(0.33)
 	borderSize:SetLabel("Border Size")
 	borderSize:SetSliderValues(0, 10, 0.1)
-	borderSize:SetValue(options.borderSize or 0)
+	borderSize:SetValue(options.borderSize or 1)
 	borderSize:SetCallback("OnValueChanged", function(_, _, value)
 		options.borderSize = value
 		RefreshCastBar()
