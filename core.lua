@@ -216,7 +216,7 @@ function SCM:PLAYER_EQUIPMENT_CHANGED()
 end
 
 function SCM:PLAYER_EQUIPED_SPELLS_CHANGED()
-	C_Timer.After(0.1, function()
+	C_Timer.After(1, function()
 		SCM:CreateAllCustomIcons("slot")
 		SCM:ApplyAnchorGroupByIconType("slot")
 	end)
@@ -225,12 +225,12 @@ function SCM:PLAYER_EQUIPED_SPELLS_CHANGED()
 end
 
 function SCM:PLAYER_REGEN_ENABLED()
-	if not self.appliedOptions then
-		self:UpdateDB()
-		self:ApplyOptions()
-	end
-
-	SCM:ApplyAllCDManagerConfigs()
+	-- if not self.appliedOptions then
+	-- 	self:UpdateDB()
+	-- 	self:ApplyOptions()
+	-- end
+-- 
+	-- SCM:ApplyAllCDManagerConfigs()
 end
 
 function SCM:PLAYER_REGEN_DISABLED() end
