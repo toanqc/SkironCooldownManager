@@ -170,9 +170,12 @@ local function ApplyCooldownStyle(child, options)
 			child.CooldownFlash:SetAlpha(0)
 		end
 
-		-- cooldownFrame:ClearAllPoints()
-		-- cooldownFrame:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -0)
-		cooldownFrame:SetPoint("BOTTOMRIGHT", child, "BOTTOMRIGHT", -SCM:PixelPerfect(), SCM:PixelPerfect())
+		child.Cooldown:ClearAllPoints()
+		child.Cooldown:SetAllPoints()
+		-- if child.SCMCustom then
+		-- 	cooldownFrame:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -SCM:PixelPerfect())
+		-- end
+		-- cooldownFrame:SetPoint("BOTTOMRIGHT", child, "BOTTOMRIGHT", -SCM:PixelPerfect(), SCM:PixelPerfect())
 		cooldownFrame:SetSwipeTexture("Interface\\Buttons\\WHITE8x8")
 
 		hooksecurefunc(cooldownFrame, "SetCooldown", OnSetCooldown)
