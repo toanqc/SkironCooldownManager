@@ -95,7 +95,12 @@ local function OnBuffShowPandemicStateFrame(self)
 
 	self.PandemicIcon:SetAlpha(0)
 
-	if not self.SCMGlow and options.pandemicGlowOption == "replacePandemicGlow" then
+	if self.SCMPandemicStop then
+		self.SCMPandemicStop:Cancel()
+		self.SCMPandemicStop = nil
+	end
+
+	if not self.SCMPandemic and not self.SCMGlow and options.pandemicGlowOption == "replacePandemicGlow" then
 		self.SCMPandemic = true
 		SCM:StartCustomGlow(self)
 	end
@@ -108,8 +113,10 @@ local function OnBuffHidePandemicStateFrame(self)
 	end
 
 	if self.SCMPandemic and self.SCMGlow and options.pandemicGlowOption == "replacePandemicGlow" then
-		SCM:StopCustomGlow(self)
-		self.SCMPandemic = nil
+		self.SCMPandemicStop = self.SCMPandemicStop or C_Timer.NewTimer(0.1, function()
+			SCM:StopCustomGlow(self)
+			self.SCMPandemic = nil
+		end)
 	end
 end
 
