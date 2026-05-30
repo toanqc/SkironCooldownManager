@@ -27,7 +27,7 @@ local function OnBuffCooldownSet(self)
 		return
 	end
 
-	if parent.auraInstanceID and (not parent.SCMAuraInstanceID or parent.auraInstanceID ~= parent.SCMAuraInstanceID) then
+	if parent.auraInstanceID and (not parent.SCMAuraInstanceID or parent.auraInstanceID ~= parent.SCMAuraInstanceID) and parent.auraDataUnit == "player" then
 		parent.SCMAuraInstanceID = parent.auraInstanceID
 		parent.SCMAuraDataUnit = parent.auraDataUnit or parent.SCMAuraDataunit
 	elseif parent.SCMUseFixedDuration then
@@ -95,7 +95,12 @@ local function OnBuffShowPandemicStateFrame(self)
 
 	self.PandemicIcon:SetAlpha(0)
 
-	if not self.SCMGlow and options.pandemicGlowOption == "replacePandemicGlow" then
+	if self.SCMPandemicStop then
+		self.SCMPandemicStop:Cancel()
+		self.SCMPandemicStop = nil
+	end
+
+	if not self.SCMPandemic and not self.SCMGlow and options.pandemicGlowOption == "replacePandemicGlow" then
 		self.SCMPandemic = true
 		SCM:StartCustomGlow(self)
 	end
@@ -108,8 +113,10 @@ local function OnBuffHidePandemicStateFrame(self)
 	end
 
 	if self.SCMPandemic and self.SCMGlow and options.pandemicGlowOption == "replacePandemicGlow" then
-		SCM:StopCustomGlow(self)
-		self.SCMPandemic = nil
+		self.SCMPandemicStop = self.SCMPandemicStop or C_Timer.NewTimer(0.1, function()
+			SCM:StopCustomGlow(self)
+			self.SCMPandemic = nil
+		end)
 	end
 end
 
@@ -153,18 +160,24 @@ function Cooldowns.SetupBuffIconHooks(child, options)
 	end
 end
 
-function Cooldowns.IsChildOnCooldown(child)
-	if not child or not child.Cooldown then
-		return
+function Cooldowns.GetChildCooldown(child)
+	local cooldownData = SCM.defaultCooldownViewerConfig.cooldownIDs[child.SCMCooldownID]
+
+	local durationObject
+
+	local spellCooldown = C_Spell.GetSpellCooldown(child.SCMSpellID)
+	if spellCooldown and spellCooldown.isActive and not spellCooldown.isOnGCD then
+		durationObject = C_Spell.GetSpellCooldownDuration(child.SCMSpellID, true)
 	end
 
-	local spellCooldownInfo = C_Spell.GetSpellCooldown(child.SCMSpellID)
-	local isOnCooldown = spellCooldownInfo and spellCooldownInfo.isActive and not spellCooldownInfo.isOnGCD
-	if Constants.CheckCooldownFrameSpells[child.SCMSpellID] then
-		return isOnCooldown and child.Cooldown:IsVisible()
+	if cooldownData.charges and not durationObject then
+		local spellCharges = C_Spell.GetSpellCharges(child.SCMSpellID)
+		if spellCharges and spellCharges.isActive and not spellCharges.isOnGCD then
+			durationObject = C_Spell.GetSpellChargeDuration(child.SCMSpellID, true)
+		end
 	end
 
-	return isOnCooldown
+	return durationObject ~= nil, durationObject
 end
 
 function Cooldowns.SetNormalCooldown(self, parent)
@@ -257,7 +270,7 @@ local function OnRegularCooldownChanged(self, changeType)
 
 	local config = parent.SCMConfig
 	if config.hideWhenNotOnCooldown then
-		local shouldShow = Cooldowns.IsChildOnCooldown(parent) and true or false
+		local shouldShow = Cooldowns.GetChildCooldown(parent) and true or false
 		if parent.SCMShouldBeVisible ~= shouldShow then
 			local viewer = parent.viewerFrame
 			if viewer then

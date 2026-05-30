@@ -524,6 +524,22 @@ function CustomIcons.UpdateSpellGlow(spellID, event)
 	end
 end
 
+function CustomIcons.UpdateItemCountForItemID(itemID)
+	local entriesByItemID = Cache.cachedCustomItemEntriesByItemID[itemID]
+
+	if not entriesByItemID then
+		return
+	end
+
+	for i = 1, #entriesByItemID do
+		local entry = entriesByItemID[i]
+		local frame = CustomItemFrames[entry.id]
+		if frame and not frame.SCMReleased then
+			SetCustomIconCountText(frame, frame.SCMIconType, entry.config)
+		end
+	end
+end
+
 local function DoesItemOrSpellExists(config)
 	local iconType = GetIconType(config)
 	if iconType == "empty" then
@@ -600,8 +616,13 @@ local function ShouldLoadCustomIcon(config)
 		return false
 	end
 
-	if config.useSpellKnown and (not config.spellKnownSpellID or type(config.spellKnownSpellID) ~= "number" or not C_SpellBook.IsSpellKnown(config.spellKnownSpellID)) then
-		return false
+	if config.useSpellKnown or config.useSpellKnown == nil then
+		if not config.spellKnownSpellID or type(config.spellKnownSpellID) ~= "number" then
+			return true
+		end
+
+		local isSpellKnown = C_SpellBook.IsSpellKnown(config.spellKnownSpellID)
+		return (config.useSpellKnown and isSpellKnown) or (config.useSpellKnown == nil and not isSpellKnown)
 	end
 
 	return true
@@ -830,8 +851,6 @@ local function RebuildCustomIconLoadCache()
 	customIconRequests.requestedItemIDs = customIconRequests.requestedItemIDs or {}
 	local requestedSpellIDs = customIconRequests.requestedSpellIDs
 	local requestedItemIDs = customIconRequests.requestedItemIDs
-	wipe(requestedSpellIDs)
-	wipe(requestedItemIDs)
 
 	wipe(Cache.cachedCustomSpellEntriesBySpellID)
 	wipe(Cache.cachedCustomItemEntriesByItemID)
@@ -882,7 +901,7 @@ local function CreateCustomIcon(id, config, isGlobal, skipExisting)
 			return
 		end
 
-		if DoesItemOrSpellExists(config) and ShouldLoadCustomIcon(config) then
+		if DoesItemOrSpellExists(config) and (not isGlobal or ShouldLoadCustomIcon(config)) then
 			local frame = AcquireCustomIconFrame(customFrames, id)
 			ConfigureCustomIconFrame(frame, id, config, 1, config.anchorGroup or 1, isGlobal)
 			UpdateCustomIconFrameState(frame, config)
@@ -945,8 +964,8 @@ local function ProcessCustomIcon(id, config, validChildren)
 		return
 	end
 
-	if customFrames[id] and DoesItemOrSpellExists(config) and ShouldLoadCustomIcon(config) then
-		local frame = customFrames[id]
+	local frame = customFrames[id]
+	if frame and DoesItemOrSpellExists(config) and (not frame.SCMGlobal or ShouldLoadCustomIcon(config)) then
 		local iconType = frame.SCMIconType
 		if iconType == "empty" then
 			Icons.SetChildVisibilityState(frame, true, true)

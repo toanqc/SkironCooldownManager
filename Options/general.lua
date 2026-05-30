@@ -840,7 +840,7 @@ local function SelectGlobalSettingsTab(tabWidget, group, options)
 				selectedBreakpoint.rounding = styleSettings.rounding
 
 				if selectedBreakpoint.color then
-					selectedBreakpoint.format = CreateColor(unpack(selectedBreakpoint.color)):WrapTextInColorCode(C_StringUtil.StripHyperlinks(selectedBreakpoint.format))
+					selectedBreakpoint.format = CreateColor(unpack(selectedBreakpoint.color)):WrapTextInColorCode(C_StringUtil.StripHyperlinks(styleSettings.format))
 				else
 					selectedBreakpoint.format = styleSettings.format
 				end

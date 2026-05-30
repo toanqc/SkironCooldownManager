@@ -1601,6 +1601,16 @@ local function SelectAnchor(widget, parentWidget, anchorIndex, anchorTabsTbl, mo
 
 										iconSettingsTabs:AddChild(castTimer)
 									end
+
+									local hideCountdownNumbers = AceGUI:Create("CheckBox")
+									hideCountdownNumbers:SetRelativeWidth(0.5)
+									hideCountdownNumbers:SetValue(buttonConfig.hideCountdownNumbers)
+									hideCountdownNumbers:SetLabel("Hide Timer Text")
+									hideCountdownNumbers:SetCallback("OnValueChanged", function(self, event, value)
+										buttonConfig.hideCountdownNumbers = value or nil
+										ApplyIconConfigUpdate()
+									end)
+									iconSettingsTabs:AddChild(hideCountdownNumbers)
 								else
 									local customColor = AceGUI:Create("ColorPicker")
 									customColor:SetRelativeWidth(0.5)
@@ -1726,16 +1736,17 @@ local function SelectAnchor(widget, parentWidget, anchorIndex, anchorTabsTbl, mo
 										iconSettingsTabs:AddChild(loadRaces)
 
 										local useSpellKnown = AceGUI:Create("CheckBox")
-										useSpellKnown:SetLabel("Spell Known")
+										useSpellKnown:SetLabel(buttonConfig.useSpellKnown == nil and "|cFFFF0000Spell Not Known" or "Spell Known")
 										useSpellKnown:SetRelativeWidth(0.5)
 										useSpellKnown:SetValue(buttonConfig.useSpellKnown)
+										useSpellKnown:SetTriState(true)
 										iconSettingsTabs:AddChild(useSpellKnown)
 
 										local loadSpellKnown = AceGUI:Create("EditBox")
 										loadSpellKnown:SetRelativeWidth(0.5)
 										loadSpellKnown:SetLabel("SpellID")
 										loadSpellKnown:SetText(buttonConfig.spellKnownSpellID and tostring(buttonConfig.spellKnownSpellID) or "")
-										loadSpellKnown:SetDisabled(not buttonConfig.useSpellKnown)
+										loadSpellKnown:SetDisabled(buttonConfig.useSpellKnown == false)
 										loadSpellKnown:SetCallback("OnEnterPressed", function(_, _, value)
 											buttonConfig.spellKnownSpellID = tonumber(value)
 											ApplyIconConfigUpdate()
@@ -1743,7 +1754,14 @@ local function SelectAnchor(widget, parentWidget, anchorIndex, anchorTabsTbl, mo
 
 										useSpellKnown:SetCallback("OnValueChanged", function(self, event, value)
 											buttonConfig.useSpellKnown = value
-											loadSpellKnown:SetDisabled(not value)
+
+											if buttonConfig.useSpellKnown == nil then
+												useSpellKnown:SetLabel("|cFFFF0000Spell Not Known")
+											else
+												useSpellKnown:SetLabel("Spell Known")
+											end
+
+											loadSpellKnown:SetDisabled(buttonConfig.useSpellKnown == false)
 											ApplyIconConfigUpdate()
 										end)
 

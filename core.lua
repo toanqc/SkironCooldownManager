@@ -16,35 +16,6 @@ SCM.CustomAnchors = {}
 SCM.CustomEntries = {}
 SCM.Templates = {}
 
-local function OnEssentialCooldownViewerLayout(viewer)
-	-- SCM:InvalidateViewerChildrenCache(viewer)
-	-- SCM:InvalidateViewerChildrenCache(UtilityCooldownViewer)
-	SCM:ApplyEssentialCDManagerConfig()
-end
-
-local function OnUtilityCooldownViewerLayout(viewer)
-	-- SCM:InvalidateViewerChildrenCache(viewer)
-	-- SCM:InvalidateViewerChildrenCache(EssentialCooldownViewer)
-	SCM:ApplyUtilityCDManagerConfig()
-end
-
-local function OnBuffCooldownViewerLayout(viewer)
-	SCM:InvalidateViewerChildrenCache(viewer)
-	SCM:ApplyBuffIconCDManagerConfig()
-end
-
-local function OnBuffBarViewerLayout(viewer)
-	SCM:InvalidateViewerChildrenCache(viewer)
-	SCM:ApplyBuffBarCDManagerConfig()
-end
-
-local function OnCooldownViewerSettingsRefreshLayout(self)
-	SCM:ClearChildrenCache()
-	SCM:UpdateCooldownInfo(true)
-	SCM:UpdateDB()
-	SCM:ApplyAllCDManagerConfigs()
-end
-
 local pendingCustomGlowChildren = {}
 local function OnSpellAlertManagerShowAlert(_, child)
 	local options = SCM.db.profile.options
@@ -100,6 +71,28 @@ local function RefreshCooldownViewerData(releaseCustomIcons)
 end
 SCM.RefreshCooldownViewerData = RefreshCooldownViewerData
 
+local function OnEssentialCooldownViewerLayout()
+	SCM:ApplyEssentialCDManagerConfig()
+end
+
+local function OnUtilityCooldownViewerLayout()
+	SCM:ApplyUtilityCDManagerConfig()
+end
+
+local function OnBuffCooldownViewerLayout(viewer)
+	SCM:InvalidateViewerChildrenCache(viewer)
+	SCM:ApplyBuffIconCDManagerConfig()
+end
+
+local function OnBuffBarViewerLayout(viewer)
+	SCM:InvalidateViewerChildrenCache(viewer)
+	SCM:ApplyBuffBarCDManagerConfig()
+end
+
+local function OnCooldownViewerSettingsRefreshLayout()
+	RefreshCooldownViewerData(true)
+end
+
 function SCM:SetHooks()
 	hooksecurefunc(EssentialCooldownViewer, "RefreshLayout", OnEssentialCooldownViewerLayout)
 	hooksecurefunc(UtilityCooldownViewer, "RefreshLayout", OnUtilityCooldownViewerLayout)
@@ -138,6 +131,23 @@ function SCM:BAG_UPDATE_DELAYED()
 	if SCM.CustomIcons.UpdateItemCountText() then
 		SCM:ApplyAnchorGroupByIconType("item")
 	end
+
+	if not self.initEquipment then
+		self.initEquipment = true
+		C_Timer.After(1, function()
+			SCM:CreateAllCustomIcons("slot")
+			SCM:ApplyAnchorGroupByIconType("slot")
+		end)
+	end
+end
+
+function SCM:ACTIONBAR_SLOT_CHANGED(actionSlot)
+	local actionType, itemID = GetActionInfo(actionSlot)
+	if actionType ~= "item" or not itemID then
+		return
+	end
+
+	SCM.CustomIcons.UpdateItemCountForItemID(itemID)
 end
 
 function SCM:UNIT_SPELLCAST_SUCCEEDED(_, _, spellID)
@@ -214,7 +224,7 @@ function SCM:PLAYER_EQUIPMENT_CHANGED()
 end
 
 function SCM:PLAYER_EQUIPED_SPELLS_CHANGED()
-	C_Timer.After(0.1, function()
+	C_Timer.After(1, function()
 		SCM:CreateAllCustomIcons("slot")
 		SCM:ApplyAnchorGroupByIconType("slot")
 	end)
@@ -223,12 +233,12 @@ function SCM:PLAYER_EQUIPED_SPELLS_CHANGED()
 end
 
 function SCM:PLAYER_REGEN_ENABLED()
-	if not self.appliedOptions then
-		self:UpdateDB()
-		self:ApplyOptions()
-	end
-
-	SCM:ApplyAllCDManagerConfigs()
+	-- if not self.appliedOptions then
+	-- 	self:UpdateDB()
+	-- 	self:ApplyOptions()
+	-- end
+	--
+	-- SCM:ApplyAllCDManagerConfigs()
 end
 
 function SCM:PLAYER_REGEN_DISABLED() end
@@ -282,12 +292,24 @@ function SCM:COOLDOWN_VIEWER_SPELL_OVERRIDE_UPDATED(baseSpellID, overrideSpellID
 end
 
 function SCM:SPELL_DATA_LOAD_RESULT(spellID, success)
+	local requestedSpellIDs = SCM.Cache.customIconRequests.requestedSpellIDs
+	if not requestedSpellIDs or not requestedSpellIDs[spellID] then
+		return
+	end
+	requestedSpellIDs[spellID] = nil
+
 	if success then
 		SCM.CustomIcons.CreateSpellIcon(spellID)
 	end
 end
 
 function SCM:ITEM_DATA_LOAD_RESULT(itemID, success)
+	local requestedItemIDs = SCM.Cache.customIconRequests.requestedItemIDs
+	if not requestedItemIDs or not requestedItemIDs[itemID] then
+		return
+	end
+	requestedItemIDs[itemID] = nil
+
 	if success then
 		SCM.CustomIcons.CreateItemIcon(itemID)
 	end
@@ -337,7 +359,7 @@ EventUtil.ContinueOnAddOnLoaded(addonName, function()
 
 	eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 	eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
-	eventFrame:RegisterEvent("PLAYER_EQUIPED_SPELLS_CHANGED")
+	--eventFrame:RegisterEvent("PLAYER_EQUIPED_SPELLS_CHANGED")
 	eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 	eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 	eventFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
@@ -354,6 +376,7 @@ EventUtil.ContinueOnAddOnLoaded(addonName, function()
 	eventFrame:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
 	eventFrame:RegisterEvent("UI_SCALE_CHANGED")
 	eventFrame:RegisterEvent("DISPLAY_SIZE_CHANGED")
+	eventFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 	eventFrame:RegisterEvent("CVAR_UPDATE")
 	eventFrame:RegisterEvent("SPELL_DATA_LOAD_RESULT")
 	eventFrame:RegisterEvent("ITEM_DATA_LOAD_RESULT")

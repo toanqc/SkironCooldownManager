@@ -170,7 +170,6 @@ function Utils.ResetChildSCMState(child)
 		return
 	end
 
-
 	if child.SCMHideTimer then
 		child.SCMHideTimer:Cancel()
 		child.SCMHideTimer = nil
