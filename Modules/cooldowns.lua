@@ -31,7 +31,7 @@ local function OnBuffCooldownSet(self)
 		parent.SCMAuraInstanceID = parent.auraInstanceID
 		parent.SCMAuraDataUnit = parent.auraDataUnit or parent.SCMAuraDataunit
 	elseif parent.SCMUseFixedDuration then
-		parent.SCMFixedDuration = parent.SCMFixedDuration or GetTime() + Constants.FakeAuras[parent.SCMSpellID]
+		parent.SCMFixedDuration = parent.SCMFixedDuration or GetTime() + parent.SCMUseFixedDuration
 	end
 
 	if not parent.SCMHidden or parent.SCMConfig.alwaysShow then
@@ -139,7 +139,7 @@ function Cooldowns.SetupBuffIconHooks(child, options)
 		end
 
 		child.SCMCheckCooldownFrame = true
-		child.SCMUseFixedDuration = type(Constants.FakeAuras[child.SCMSpellID]) == "number"
+		child.SCMUseFixedDuration = type(Constants.FakeAuras[child.SCMSpellID]) == "number" and Constants.FakeAuras[child.SCMSpellID]
 	else
 		if not child.SCMAuraHooked then
 			hooksecurefunc(child, "OnAuraInstanceInfoSet", OnBuffCooldownSet)
@@ -175,6 +175,10 @@ function Cooldowns.GetChildCooldown(child)
 		if spellCharges and spellCharges.isActive and not spellCharges.isOnGCD then
 			durationObject = C_Spell.GetSpellChargeDuration(child.SCMSpellID, true)
 		end
+	end
+
+	if Constants.CheckCooldownFrameSpells[child.SCMSpellID] then
+		return durationObject ~= nil and child.Cooldown:IsVisible(), durationObject
 	end
 
 	return durationObject ~= nil, durationObject
