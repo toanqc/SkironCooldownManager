@@ -540,7 +540,6 @@ local function SelectGlobalSettingsTab(tabWidget, group, options)
 		borderSize:SetCallback("OnValueChanged", function(_, _, value)
 			options.borderSize = value
 			SCM:CreateCastBar()
-			SCM:UpdateCastBar()
 			SCM:ApplyAllCDManagerConfigs()
 		end)
 		borderSettings:AddChild(borderSize)
