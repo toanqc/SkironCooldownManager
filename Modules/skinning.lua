@@ -2,16 +2,6 @@ local SCM = select(2, ...)
 local LSM = LibStub("LibSharedMedia-3.0")
 
 local originalCooldownFont
-local function GetCooldownFontScale(options)
-	local cooldownFontScale = options.cooldownFontSize or 0.6
-	if cooldownFontScale > 1 then
-		cooldownFontScale = cooldownFontScale / 40
-		options.cooldownFontSize = cooldownFontScale
-	end
-
-	return cooldownFontScale
-end
-
 local function ApplyChargeAndApplicationStyle(child, options, fontPath)
 	local rowConfig = child.SCMRowConfig or {}
 	if child.ChargeCount and child.ChargeCount.Current then
@@ -38,6 +28,9 @@ local function ApplyChargeAndApplicationStyle(child, options, fontPath)
 			rowConfig.chargeXOffset or options.chargeXOffset,
 			rowConfig.chargeYOffset or options.chargeYOffset
 		)
+
+		local chargeColour = rowConfig.chargeColour or options.chargeColour
+		child.ChargeCount.Current:SetTextColor(chargeColour.r, chargeColour.g, chargeColour.b, chargeColour.a or 1)
 
 		child.ChargeCount.Current.SCMRowConfig = rowConfig
 
@@ -83,15 +76,25 @@ local function ApplyChargeAndApplicationStyle(child, options, fontPath)
 			rowConfig.applicationsXOffset or options.chargeXOffset,
 			rowConfig.applicationsYOffset or options.chargeYOffset
 		)
+
+		local chargeColour = rowConfig.chargeColour or options.chargeColour
+		child.Applications.Applications:SetTextColor(chargeColour.r, chargeColour.g, chargeColour.b, chargeColour.a or 1)
 	end
 end
 
 local function ApplyCooldownFont(cooldownFrame, options)
 	options = options or SCM.db.profile.options
+	local cooldownFontString = cooldownFrame.SCMCooldownFontString
+	if not cooldownFontString then
+		local region = cooldownFrame:GetRegions()
+		if region and region.SetFont then
+			cooldownFontString = region
+			cooldownFrame.SCMCooldownFontString = region
+		end
+	end
 
 	if options.changeCooldownFont then
 		local fontPath = LSM:Fetch("font", options.cooldownFont)
-		local cooldownFontString = cooldownFrame:GetRegions()
 		if cooldownFontString and cooldownFontString.SetFont then
 			if not originalCooldownFont then
 				originalCooldownFont = { cooldownFontString:GetFont() }
@@ -99,18 +102,27 @@ local function ApplyCooldownFont(cooldownFrame, options)
 
 			local parent = cooldownFrame.SCMParent or cooldownFrame:GetParent()
 			if parent and parent.SCMWidth and parent.SCMHeight then
-				local width, height = parent.SCMWidth, parent.SCMHeight
-				local iconSize = min(width, height)
-				local rowConfig = parent.SCMRowConfig
-				local fontSize
+				local iconSize = min(parent.SCMWidth, parent.SCMHeight)
+				local childConfig = parent.SCMConfig
+				local config = parent.SCMRowConfig
 
-				if rowConfig and rowConfig.cooldownFontSize then
-					fontSize = rowConfig.cooldownFontSize
-				else
-					fontSize = max(1, floor(iconSize * GetCooldownFontScale(options) + 0.5))
+				if childConfig and childConfig.cooldownOverrideGlobal then
+					config = childConfig
 				end
 
-				local fontOutline = rowConfig and rowConfig.cooldownFontOutline or options.cooldownFontOutline or "OUTLINE"
+				local percentageFontSize = config and config.cooldownFontSize or options.cooldownFontSize
+				local fontSize
+				if percentageFontSize > 1 then
+					fontSize = percentageFontSize
+				else
+					fontSize = max(1, floor(iconSize * percentageFontSize + 0.5))
+				end
+
+				local fontOutline = options.cooldownFontOutline or "OUTLINE"
+				if config and config.cooldownFontOutline then
+					fontOutline = config.cooldownFontOutline
+				end
+
 				cooldownFontString:SetFont(fontPath, fontSize, fontOutline)
 				cooldownFontString:SetShadowColor(0, 0, 0, 0)
 				cooldownFontString:SetShadowOffset(0, 0)
@@ -119,11 +131,23 @@ local function ApplyCooldownFont(cooldownFrame, options)
 				cooldownFontString:SetTextColor(cooldownFontColor.r, cooldownFontColor.g, cooldownFontColor.b, cooldownFontColor.a)
 
 				cooldownFontString:ClearAllPoints()
-				cooldownFontString:SetPoint("CENTER", parent, "CENTER", options.cooldownXOffset, options.cooldownYOffset)
+
+				local point = "CENTER"
+				local relativePoint = "CENTER"
+				local xOffset = options.cooldownXOffset
+				local yOffset = options.cooldownYOffset
+
+				if config then
+					point = config.cooldownTextPoint or point
+					relativePoint = config.cooldownTextRelativePoint or relativePoint
+					xOffset = config.cooldownTextXOffset or xOffset
+					yOffset = config.cooldownTextYOffset or yOffset
+				end
+
+				cooldownFontString:SetPoint(point, parent, relativePoint, xOffset, yOffset)
 			end
 		end
 	elseif originalCooldownFont then
-		local cooldownFontString = cooldownFrame:GetRegions()
 		if cooldownFontString and cooldownFontString.SetFont then
 			cooldownFontString:SetFont(unpack(originalCooldownFont))
 		end
@@ -178,7 +202,7 @@ local function OnSetCooldown(self)
 	ApplyCooldownFont(self, options)
 end
 
-local function ApplyCooldownStyle(child, options)
+local function ApplyCooldownStyle(child, options, childConfig)
 	local cooldownFrame = child.GetCooldownFrame and child:GetCooldownFrame() or child.Cooldown
 	if cooldownFrame then
 		if child.SCMCooldownSkinHook then
@@ -190,12 +214,27 @@ local function ApplyCooldownStyle(child, options)
 			child.CooldownFlash:SetAlpha(0)
 		end
 
-		cooldownFrame:SetParent(child.SCMCooldownParent)
-		cooldownFrame.SCMParent = child
-		cooldownFrame:ClearAllPoints()
-		cooldownFrame:SetPoint("TOPLEFT", child.SCMCooldownParent, "TOPLEFT", -5, 5)
-		cooldownFrame:SetPoint("BOTTOMRIGHT", child.SCMCooldownParent, "BOTTOMRIGHT", 5, -5)
 		cooldownFrame:SetSwipeTexture("Interface\\Buttons\\WHITE8x8")
+		cooldownFrame:ClearAllPoints()
+
+		if childConfig then
+			if childConfig.cooldownMoveTL then
+				cooldownFrame:SetPoint("TOPLEFT", child, "TOPLEFT", childConfig.cooldownXOffsetTL, childConfig.cooldownYOffsetTL)
+			else
+				cooldownFrame:SetPoint("TOPLEFT", child, "TOPLEFT", 0, 0)
+			end
+
+			if childConfig.cooldownMoveBR then
+				cooldownFrame:SetPoint("BOTTOMRIGHT", child, "BOTTOMRIGHT", childConfig.cooldownXOffsetBR, childConfig.cooldownYOffsetBR)
+			else
+				cooldownFrame:SetPoint("BOTTOMRIGHT", child, "BOTTOMRIGHT", -SCM:PixelPerfectSize(1), SCM:PixelPerfectSize(1))
+			end
+		else
+			cooldownFrame:SetPoint("TOPLEFT", child, "TOPLEFT", 0, 0)
+			cooldownFrame:SetPoint("BOTTOMRIGHT", child, "BOTTOMRIGHT", -SCM:PixelPerfectSize(1), SCM:PixelPerfectSize(1))
+		end
+
+		cooldownFrame.SCMParent = child
 
 		hooksecurefunc(cooldownFrame, "SetCooldown", OnSetCooldown)
 		OnSetCooldown(cooldownFrame)
@@ -244,12 +283,11 @@ function SCM:SkinChild(child, childConfig)
 		child:SetFrameStrata(frameStrata)
 	end
 
-	local borderSize = options.borderSize
-	local borderColor = options.borderColor
-
 	if not child.SCMSkinned or (child.SCMSkinned and self.OptionsFrame and self.OptionsFrame:IsShown()) then
 		child.SCMSkinned = true
 
+		local borderSize = options.borderSize
+		local borderColor = options.borderColor
 		child.customBorder = child.customBorder or CreateFrame("Frame", nil, child, "BackdropTemplate")
 		child.customBorder:SetFrameLevel(child:GetFrameLevel() + 1)
 		child.customBorder:ClearAllPoints()
@@ -271,17 +309,24 @@ function SCM:SkinChild(child, childConfig)
 			region:SetSnapToPixelGrid(false)
 		end
 
-		child.SCMCooldownParent = child.SCMCooldownParent or CreateFrame("Frame", nil, child)
-		child.SCMCooldownParent:ClearAllPoints()
+		borderSize = options.pandemicBorderSize
+		borderColor = options.pandemicBorderColor
 
-		--TODO: How to get the cooldown frame aligned with the visible part of a frame? Please tell me
-		if (childConfig and childConfig.expCooldownThing)  then
-			child.SCMCooldownParent:SetAllPoints(child)
-		else
-			child.SCMCooldownParent:SetPoint("TOPLEFT", child, "TOPLEFT", 0, 0)
-			child.SCMCooldownParent:SetPoint("BOTTOMRIGHT", child, "BOTTOMRIGHT", -SCM:PixelPerfectSize(1), SCM:PixelPerfectSize(1))
+		child.pandemicBorder = child.pandemicBorder or CreateFrame("Frame", nil, child, "BackdropTemplate")
+		child.pandemicBorder:SetFrameLevel(child:GetFrameLevel() + 2)
+		child.pandemicBorder:ClearAllPoints()
+		child.pandemicBorder:SetAllPoints(child)
+		child.pandemicBorder:SetBackdrop({
+			edgeFile = "Interface\\Buttons\\WHITE8x8",
+			edgeSize = borderSize,
+		})
+		child.pandemicBorder:SetBackdropBorderColor(borderColor.r, borderColor.g, borderColor.b, borderColor.a)
+		child.pandemicBorder:Hide()
+
+		for _, region in ipairs({ child.pandemicBorder:GetRegions() }) do
+			region:SetTexelSnappingBias(0)
+			region:SetSnapToPixelGrid(false)
 		end
-		child.SCMCooldownParent:SetClipsChildren(true)
 
 		local textureRegion
 		for _, region in ipairs({ child:GetRegions() }) do
@@ -313,7 +358,7 @@ function SCM:SkinChild(child, childConfig)
 
 		ApplyZoomSettings(child, options)
 		ApplyChargeAndApplicationStyle(child, options, LSM:Fetch("font", options.chargeFont))
-		ApplyCooldownStyle(child, options)
+		ApplyCooldownStyle(child, options, childConfig)
 	end
 
 	for _, customSkin in ipairs(SCM.Skins) do
