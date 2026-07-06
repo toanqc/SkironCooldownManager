@@ -90,6 +90,65 @@ Constants.BlendModeSorted = {
 	"MOD",
 }
 
+Constants.States = {
+	["active"] = "Active",
+	["inactive"] = "Inactive",
+	["ready"] = "Ready",
+	["cooldown"] = "On Cooldown",
+	["nocharges"] = "No Charges",
+	["maxcharges"] = "Max Charges",
+	["recharging"] = "Recharging",
+	["ongcd"] = "On GCD",
+	["mounted"] = "Mounted"
+}
+
+Constants.StatesSorted = {
+	"ready",
+	"cooldown",
+	"active",
+	"inactive",
+	"nocharges",
+	"maxcharges",
+	"recharging",
+	"ongcd",
+	"mounted",
+}
+
+Constants.Visibility = {
+	["show"] = "Show",
+	["hide"] = "Hide",
+}
+
+Constants.VisibilitySorted = {
+	"show",
+	"hide",
+}
+
+Constants.Subregions = {
+	["glow"] = "Glow",
+	["border"] = "Border",
+	--["text"] = "Text"
+}
+
+Constants.SubregionsSorted = {
+	"glow",
+	"border",
+}
+
+Constants.GlowTypes = {
+	["Pixel"] = "Pixel",
+	["Autocast"] = "Autocast",
+	["Proc"] = "Proc",
+	["Button"] = "Button",
+}
+
+Constants.GlowTypesSorted = {
+	"Pixel",
+	"Proc",
+	"Autocast",
+	"Button"
+}
+
 Constants.ResourceBarGrowthDirection = {
 	UP = "Up",
 	DOWN = "Down",
