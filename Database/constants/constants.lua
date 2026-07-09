@@ -95,23 +95,37 @@ Constants.States = {
 	["inactive"] = "Inactive",
 	["ready"] = "Ready",
 	["cooldown"] = "On Cooldown",
-	["nocharges"] = "No Charges",
-	["maxcharges"] = "Max Charges",
-	["recharging"] = "Recharging",
-	["ongcd"] = "On GCD",
-	["mounted"] = "Mounted"
+	-- ["nocharges"] = "No Charges",
+	-- ["maxcharges"] = "Max Charges",
+	-- ["recharging"] = "Recharging",
+	-- ["ongcd"] = "On GCD",
+	-- ["mounted"] = "Mounted"
 }
 
 Constants.StatesSorted = {
-	"ready",
-	"cooldown",
-	"active",
-	"inactive",
-	"nocharges",
-	"maxcharges",
-	"recharging",
-	"ongcd",
-	"mounted",
+	["spell"] = {
+		"ready",
+		"cooldown",
+		"active",
+		"inactive",
+	},
+	["item"] = {
+		"ready",
+		"cooldown",
+	},
+	["slot"] = {
+		"ready",
+		"cooldown",
+	},
+	["custom"] = {
+		"ready",
+		"cooldown",
+	},
+	-- "nocharges",
+	-- "maxcharges",
+	-- "recharging",
+	-- "ongcd",
+	-- "mounted",
 }
 
 Constants.Visibility = {
@@ -146,7 +160,8 @@ Constants.GlowTypesSorted = {
 	"Pixel",
 	"Proc",
 	"Autocast",
-	"Button"
+	"Button",
+	"Button",
 }
 
 Constants.ResourceBarGrowthDirection = {
@@ -163,3 +178,15 @@ Constants.SatedDebuffs = {
 	[264689] = true,
 	[390435] = true,
 }
+
+Constants.SCMAnchors = {
+	["SkironCooldownManager"] = {
+		["Cast Bar"] = "SCM_CastBar",
+		["Primary Resource Bar"] = "SCM_PrimaryResourceBar",
+		["Secondary Resource Bar"] = "SCM_SecondaryResourceBar",
+		["Anchor"] = "SCM_GroupAnchor_#",
+		["Global Anchor"] = "SCM_GroupAnchor_10#",
+		["Buff Bar Anchor"] = "SCM_GroupAnchor_20#"
+	},
+}
+

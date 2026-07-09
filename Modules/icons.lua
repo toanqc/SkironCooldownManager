@@ -4,6 +4,7 @@ local Icons = SCM.Icons
 local Cache = SCM.Cache
 local Utils = SCM.Utils
 local Constants = SCM.Constants
+local States = SCM.States
 local AddChildToGroup = Utils.AddChildToGroup
 local GetSpellConfigByCooldownID = Utils.GetSpellConfigByCooldownID
 local Cooldowns = SCM.Cooldowns
@@ -116,15 +117,15 @@ function Icons.SetChildVisibilityState(child, shouldShow, applyNow)
 	end
 end
 
-function Icons.UpdateChildDesaturation(child, shouldDesaturate)
+function Icons.UpdateChildDesaturation(child, shouldDesaturate, forceDesaturation)
 	if child.Icon and child.SCMConfig and child.SCMSpellID then
-		if child.SCMConfig.desaturate then
+		if forceDesaturation then
 			child.Icon.SCMDesaturated = shouldDesaturate
-			child.Icon:SetDesaturated(shouldDesaturate)
 		else
-			child.Icon.SCMDesaturated = false
-			child.Icon:SetDesaturated(false)
+			child.Icon.SCMDesaturated = nil
 		end
+
+		child.Icon:SetDesaturated(shouldDesaturate)
 	end
 end
 
@@ -190,7 +191,7 @@ end
 
 local function OnSetDesaturated(iconTexture)
 	local parent = iconTexture:GetParent()
-	if not parent.SCMCustom and not iconTexture.SCMSkipUpdate and iconTexture.SCMDesaturated then
+	if not parent.SCMCustom and not iconTexture.SCMSkipUpdate and iconTexture.SCMDesaturated ~= nil then
 		iconTexture.SCMSkipUpdate = true
 		iconTexture:SetDesaturated(iconTexture.SCMDesaturated)
 		iconTexture.SCMSkipUpdate = nil
@@ -211,13 +212,9 @@ function Icons.SetupIconHooks(child)
 	end
 end
 
-function Icons.SetupRegularIconHooks(child)
-	if child.SCMRegularCooldownHook then
-		return
-	end
-
+function Icons.SetupRegularIconHooks(child, options)
 	Icons.SetupIconHooks(child)
-	Cooldowns.SetupCooldownHooks(child)
+	Cooldowns.SetupCooldownHooks(child, options)
 end
 
 function Icons.SetupBuffBarHooks(child)
@@ -348,7 +345,7 @@ function Icons.ExpandScopedAnchorGroups(viewer, viewerData, scopedAnchorGroups)
 	end
 end
 
-local function ProcessBuffIcon(child, childData, options)
+local function ProcessBuffIcon(child, childData, options, refreshStates)
 	Cooldowns.SetupBuffIconHooks(child, options)
 	child.SCMBuffOptions = options
 
@@ -361,7 +358,12 @@ local function ProcessBuffIcon(child, childData, options)
 		isInactive = not child.auraInstanceID or not child.auraDataUnit
 	end
 
-	local forceShow = SCM.simulateBuffs or (not SCM.isHideWhenInactiveEnabled and childData.alwaysShow)
+	if not child.SCMState then
+		States.SyncState(child, not isInactive, nil, true, true)
+	end
+
+
+	local forceShow = SCM.simulateBuffs or (not SCM.isHideWhenInactiveEnabled and (childData.alwaysShow or (child.SCMState and child.SCMState.Visibility)))
 	local shouldHide = (childData.showWhileInactive and not isInactive) or (isInactive and not (forceShow or childData.showWhileInactive))
 	local wasVisible = child.SCMShouldBeVisible
 
@@ -377,10 +379,16 @@ local function ProcessBuffIcon(child, childData, options)
 	Icons.UpdateChildGlow(child, isInactive)
 end
 
-local function ProcessRegularIcon(child, childData, options)
-	Icons.SetupRegularIconHooks(child)
+local function ProcessRegularIcon(child, childData, options, refreshStates)
+	Icons.SetupRegularIconHooks(child, options)
 
-	local shouldShow = not (childData.hideWhenNotOnCooldown and not Cooldowns.GetChildCooldown(child))
+	if refreshStates then
+		local isActive = (child.Cooldown and child.Cooldown:GetUseAuraDisplayTime()) or false
+		States.SyncState(child, isActive, Cooldowns.GetChildCooldown(child), true, true)
+	end
+
+	local state = child.SCMState
+	local shouldShow = not state or state.Visibility
 	local applyNow = child.SCMShouldBeVisible ~= shouldShow
 	child.SCMChanged = child.SCMChanged or applyNow
 	Icons.SetChildVisibilityState(child, shouldShow, applyNow)
@@ -407,7 +415,7 @@ local function ProcessBuffBar(child, childData, options)
 	Icons.SetChildVisibilityState(child, true, true)
 end
 
-local function ProcessSingleChild(child, validChildren, categoryIndex, isBuffIcon, options)
+local function ProcessSingleChild(child, validChildren, categoryIndex, isBuffIcon, options, refreshStates)
 	if not child.Icon then
 		return
 	end
@@ -462,9 +470,9 @@ local function ProcessSingleChild(child, validChildren, categoryIndex, isBuffIco
 	end
 
 	if isBuffIcon then
-		ProcessBuffIcon(child, groupConfig, options)
+		ProcessBuffIcon(child, groupConfig, options, refreshStates)
 	else
-		ProcessRegularIcon(child, groupConfig, options)
+		ProcessRegularIcon(child, groupConfig, options, refreshStates)
 	end
 
 	if not InCombatLockdown() then
@@ -528,7 +536,7 @@ local function ProcessSingleBuffBarChild(child, validChildren, categoryIndex, op
 	ProcessBuffBar(child, groupConfig, options)
 end
 
-function Icons.ProcessChildren(viewer, validChildren, viewerData)
+function Icons.ProcessChildren(viewer, validChildren, viewerData, refreshStates)
 	if not (viewer and viewerData) then
 		return
 	end
@@ -547,6 +555,6 @@ function Icons.ProcessChildren(viewer, validChildren, viewerData)
 
 	local isBuffIcon = viewerData.isBuffIcon
 	for _, child in ipairs(children) do
-		ProcessSingleChild(child, validChildren, categoryIndex, isBuffIcon, options)
+		ProcessSingleChild(child, validChildren, categoryIndex, isBuffIcon, options, refreshStates)
 	end
 end
