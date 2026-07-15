@@ -20,7 +20,8 @@ local function ApplyChargeAndApplicationStyle(child, options, fontPath)
 			end
 		end
 
-		child.ChargeCount:SetFrameStrata(options.chargeFrameStrata)
+		child.ChargeCount:SetFrameStrata(child:GetFrameStrata())
+		child.ChargeCount:SetFrameLevel(child:GetFrameLevel() + options.chargeFrameLevel)
 		child.ChargeCount.Current:ClearAllPoints()
 		child.ChargeCount.Current:SetPoint(
 			rowConfig.chargePoint or options.chargePoint,
@@ -69,7 +70,8 @@ local function ApplyChargeAndApplicationStyle(child, options, fontPath)
 			end
 		end
 
-		child.Applications:SetFrameStrata(options.chargeFrameStrata)
+		child.Applications:SetFrameStrata(child:GetFrameStrata())
+		child.Applications:SetFrameLevel(child:GetFrameLevel() + options.chargeFrameLevel)
 		child.Applications.Applications:ClearAllPoints()
 		child.Applications.Applications:SetPoint(
 			rowConfig.applicationsPoint or options.chargePoint,
@@ -167,10 +169,9 @@ local function ApplyCooldownSwipe(cooldownFrame, options)
 		return
 	end
 
-	local forceActiveSwipe = parent.SCMConfig and parent.SCMConfig.forceActiveSwipe
-
-	if parent.auraInstanceID or parent.SCMFakeAuraInstanceID or parent.SCMBuffOptions then
-		if options.disableRegularIconActiveSwipe and not forceActiveSwipe then
+	local childConfig = parent.SCMConfig
+	if cooldownFrame:GetUseAuraDisplayTime() or parent.SCMFakeAuraInstanceID or parent.SCMBuffOptions then
+		if (options.disableRegularIconActiveSwipe or childConfig.hideActiveSwipe) and not childConfig.forceActiveSwipe then
 			if options.recolorNormalSwipe then
 				cooldownFrame:SetSwipeColor(unpack(options.normalSwipeColor))
 			else
@@ -198,46 +199,66 @@ end
 local function OnSetCooldown(self)
 	local options = SCM.db.profile.options
 
-	SCM.Cooldowns.ApplyNumericRuleFormatter(self)
-
 	ApplyCooldownSwipe(self, options)
-	ApplyCooldownFont(self, options)
+	if not self.SCMCooldownFontString then
+		ApplyCooldownFont(self, options)
+	end
 end
 
-local function ApplyCooldownStyle(child, options, childConfig)
+local function ApplyCooldownPoints(cooldownFrame, child, options, childConfig, isOptionsOpen)
+	if child.SCMCooldownSkinHook and not isOptionsOpen then
+		return
+	end
+
+	local pixel = SCM:PixelPerfectSize(1)
+	local topLeftX, topLeftY = 0, 0
+	local bottomRightX, bottomRightY = -pixel, pixel
+
+	if childConfig and childConfig.cooldownMoveTL then
+		topLeftX = childConfig.cooldownXOffsetTL or 0
+		topLeftY = childConfig.cooldownYOffsetTL or 0
+	elseif options.cooldownMoveTL then
+		topLeftX = options.cooldownXOffsetTL or 0
+		topLeftY = options.cooldownYOffsetTL or 0
+	end
+
+	if childConfig and childConfig.cooldownMoveBR then
+		bottomRightX = childConfig.cooldownXOffsetBR or -pixel
+		bottomRightY = childConfig.cooldownYOffsetBR or pixel
+	elseif options.cooldownMoveBR then
+		bottomRightX = options.cooldownXOffsetBR or -pixel
+		bottomRightY = options.cooldownYOffsetBR or pixel
+	end
+
+	cooldownFrame:ClearAllPoints()
+	cooldownFrame:SetPoint("TOPLEFT", child, "TOPLEFT", topLeftX, topLeftY)
+	cooldownFrame:SetPoint("BOTTOMRIGHT", child, "BOTTOMRIGHT", bottomRightX, bottomRightY)
+end
+
+local function ApplyCooldownStyle(child, options, childConfig, isOptionsOpen)
 	local cooldownFrame = child.GetCooldownFrame and child:GetCooldownFrame() or child.Cooldown
 	if cooldownFrame then
+		if cooldownFrame.SCMCooldownSkinHook and not isOptionsOpen then
+			return
+		end
+
+		if child.CooldownFlash then
+			child.CooldownFlash:SetAlpha(0)
+		end
+
+		cooldownFrame:SetFrameStrata(child:GetFrameStrata())
+		cooldownFrame:SetFrameLevel(child:GetFrameLevel() + (options.cooldownFrameLevel or 1))
+		cooldownFrame:SetSwipeTexture("Interface\\Buttons\\WHITE8x8")
+		cooldownFrame.SCMParent = child
+		ApplyCooldownPoints(cooldownFrame, child, options, childConfig, isOptionsOpen)
+		SCM.Cooldowns.ApplyNumericRuleFormatter(cooldownFrame)
+		ApplyCooldownFont(cooldownFrame, options)
+
 		if child.SCMCooldownSkinHook then
 			return
 		end
 
 		child.SCMCooldownSkinHook = true
-		if child.CooldownFlash then
-			child.CooldownFlash:SetAlpha(0)
-		end
-
-		cooldownFrame:SetFrameStrata(options.cooldownFrameStrata)
-		cooldownFrame:SetSwipeTexture("Interface\\Buttons\\WHITE8x8")
-		cooldownFrame:ClearAllPoints()
-
-		if childConfig then
-			if childConfig.cooldownMoveTL then
-				cooldownFrame:SetPoint("TOPLEFT", child, "TOPLEFT", childConfig.cooldownXOffsetTL, childConfig.cooldownYOffsetTL)
-			else
-				cooldownFrame:SetPoint("TOPLEFT", child, "TOPLEFT", 0, 0)
-			end
-
-			if childConfig.cooldownMoveBR then
-				cooldownFrame:SetPoint("BOTTOMRIGHT", child, "BOTTOMRIGHT", childConfig.cooldownXOffsetBR, childConfig.cooldownYOffsetBR)
-			else
-				cooldownFrame:SetPoint("BOTTOMRIGHT", child, "BOTTOMRIGHT", -SCM:PixelPerfectSize(1), SCM:PixelPerfectSize(1))
-			end
-		else
-			cooldownFrame:SetPoint("TOPLEFT", child, "TOPLEFT", 0, 0)
-			cooldownFrame:SetPoint("BOTTOMRIGHT", child, "BOTTOMRIGHT", -SCM:PixelPerfectSize(1), SCM:PixelPerfectSize(1))
-		end
-
-		cooldownFrame.SCMParent = child
 
 		hooksecurefunc(cooldownFrame, "SetCooldown", OnSetCooldown)
 		OnSetCooldown(cooldownFrame)
@@ -286,7 +307,8 @@ function SCM:SkinChild(child, childConfig)
 		child:SetFrameStrata(frameStrata)
 	end
 
-	if not child.SCMSkinned or (child.SCMSkinned and self.OptionsFrame and self.OptionsFrame:IsShown()) then
+	local isOptionsOpen = self.OptionsFrame and self.OptionsFrame:IsShown()
+	if not child.SCMSkinned or isOptionsOpen then
 		child.SCMSkinned = true
 
 		local borderSize = options.borderSize
@@ -361,7 +383,7 @@ function SCM:SkinChild(child, childConfig)
 
 		ApplyZoomSettings(child, options)
 		ApplyChargeAndApplicationStyle(child, options, LSM:Fetch("font", options.chargeFont))
-		ApplyCooldownStyle(child, options, childConfig)
+		ApplyCooldownStyle(child, options, childConfig, isOptionsOpen)
 	end
 
 	for _, customSkin in ipairs(SCM.Skins) do
