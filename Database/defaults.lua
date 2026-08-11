@@ -50,6 +50,19 @@ SCM.DB = {
 			},
 		},
 	},
+
+	defaultAurasAnchorConfig = {
+		[3] = {
+			anchor = { "CENTER", "UIParent", "CENTER", 0, 0 },
+			rowConfig = {
+				[1] = {
+					iconHeight = 40,
+					iconWidth = 40,
+					limit = 8,
+				},
+			},
+		},
+	},
 }
 
 SCM.DefaultDB = {
@@ -59,7 +72,8 @@ SCM.DefaultDB = {
 				anchor = { "CENTER", "UIParent", "CENTER", 0, -360 },
 				rowConfig = {
 					[1] = {
-						size = 40,
+						iconHeight = 40,
+						iconWidth = 40,
 						limit = 8,
 					},
 				},
@@ -72,8 +86,25 @@ SCM.DefaultDB = {
 			timerConfig = {},
 			bloodlustConfig = {},
 		},
+		globalAurasAnchorConfig = {
+			[1] = {
+				anchor = { "CENTER", "UIParent", "CENTER", 0, 250 },
+				rowConfig = {
+					[1] = {
+						iconHeight = 40,
+						iconWidth = 40,
+						limit = 8,
+					},
+				},
+			},
+		},
 		options = {
 			anchorElvUIRoles = {
+				["HEALER"] = false,
+				["DAMAGER"] = true,
+				["TANK"] = true,
+			},
+			anchorEUIRoles = {
 				["HEALER"] = false,
 				["DAMAGER"] = true,
 				["TANK"] = true,
@@ -88,6 +119,7 @@ SCM.DefaultDB = {
 			hideOutOfCombat = false,
 			useCustomVisibilityCondition = false,
 			customVisibilityCondition = "",
+			disableBuffBarHideWhenInactive = false,
 			buffBarContent = 0,
 			debug = false,
 			debugGroup = 0,
@@ -98,7 +130,7 @@ SCM.DefaultDB = {
 			simulateAuras = true,
 			iconZoom = 0.12,
 			keepIconSquareRatio = false,
-			iconFrameStrata = "BACKGROUND",
+			iconFrameStrata = "MEDIUM",
 			chargeFont = "Expressway",
 			chargeFontSize = 22,
 			chargeFontOutline = "OUTLINE",
@@ -277,6 +309,7 @@ SCM.DefaultDB = {
 				},
 				primaryBar = {
 					enabled = true,
+					frameLevel = 1,
 					matchAnchorWidth = true,
 					width = 200,
 					hideManaRoles = {
@@ -349,6 +382,7 @@ SCM.DefaultDB = {
 				},
 				secondaryBar = {
 					enabled = true,
+					frameLevel = 1,
 					matchAnchorWidth = true,
 					width = 200,
 					hideManaRoles = {
@@ -503,7 +537,9 @@ SCM.DefaultClassConfig = {
 
 SCM.Defaults.GlobalSettingsTabs = {
 	{ value = "General", text = "General" },
+	{ value = "Auras", text = "Auras" },
 	{ value = "Icons", text = "Icons" },
+	{ value = "Cooldowns", text = "Cooldowns" },
 	{ value = "Glow", text = "Glow" },
 	{ value = "BuffBar", text = "Buff Bars" },
 	{ value = "Keybinds", text = "Keybinds" },

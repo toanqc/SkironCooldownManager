@@ -5,9 +5,6 @@ local function GetSpecConfigValue(configTable, specID)
 		return
 	end
 
-	-- Support both layouts:
-	-- 1) itemConfig[specID] = { [slotID] = config }
-	-- 2) itemConfig = { [slotID] = config } (shared for all specs)
 	return configTable[specID] or configTable
 end
 
@@ -154,7 +151,7 @@ function SCM:UpdateCooldownInfo()
 					self.defaultCooldownViewerConfig.cooldownIDs[data.cooldownID] = data
 
 					local spellID = data.spellID
-					if spellID then
+					if spellID and not issecretvalue(spellID) then
 						self.defaultCooldownViewerConfig[cooldownCategory].spellIDs[spellID] = data
 						self.defaultCooldownViewerConfig.spellIDs[spellID] = data
 						for _, linkedSpellID in ipairs(data.linkedSpellIDs or {}) do

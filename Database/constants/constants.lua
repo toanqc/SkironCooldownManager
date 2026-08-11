@@ -89,33 +89,57 @@ Constants.BlendModeSorted = {
 }
 
 Constants.States = {
+	["always"] = "Always",
 	["active"] = "Active",
 	["inactive"] = "Inactive",
+	["overridden"] = "Overridden",
 	["ready"] = "Ready",
 	["cooldown"] = "On Cooldown",
-	-- ["nocharges"] = "No Charges",
-	-- ["maxcharges"] = "Max Charges",
-	-- ["recharging"] = "Recharging",
-	-- ["ongcd"] = "On GCD",
-	-- ["mounted"] = "Mounted"
+	["noitem"] = "No Item",
+	["recharging"] = "Recharging",
 }
 
 Constants.StatesSorted = {
+	["buffBar"] = {
+		"always",
+		"active",
+		"inactive",
+	},
 	["spell"] = {
+		"always",
 		"ready",
 		"cooldown",
 		"active",
 		"inactive",
+		"overridden",
+		"recharging",
 	},
-	["item"] = {
+	["buffIcon"] = {
+		"always",
 		"ready",
 		"cooldown",
+		"active",
+		"inactive",
+		"recharging",
+	},
+	["timer"] = {
+		"always",
+		"active",
+		"inactive",
+	},
+	["item"] = {
+		"always",
+		"ready",
+		"cooldown",
+		"noitem",
 	},
 	["slot"] = {
+		"always",
 		"ready",
 		"cooldown",
 	},
 	["custom"] = {
+		"always",
 		"ready",
 		"cooldown",
 	},
@@ -136,6 +160,8 @@ Constants.VisibilitySorted = {
 	"hide",
 }
 
+Constants.GlobalGlowSubregion = "global"
+
 Constants.Subregions = {
 	["glow"] = "Glow",
 	["border"] = "Border",
@@ -145,6 +171,16 @@ Constants.Subregions = {
 Constants.SubregionsSorted = {
 	"glow",
 	"border",
+}
+
+Constants.SubregionTargets = {
+	["self"] = "Self",
+	["custom"] = "Custom"
+}
+
+Constants.SubregionTargetsSorted = {
+	"self",
+	"custom"
 }
 
 Constants.GlowTypes = {
@@ -182,9 +218,9 @@ Constants.SCMAnchors = {
 		["Cast Bar"] = "SCM_CastBar",
 		["Primary Resource Bar"] = "SCM_PrimaryResourceBar",
 		["Secondary Resource Bar"] = "SCM_SecondaryResourceBar",
-		["Anchor"] = "SCM_GroupAnchor_#",
-		["Global Anchor"] = "SCM_GroupAnchor_10#",
-		["Buff Bar Anchor"] = "SCM_GroupAnchor_20#"
+		["Anchor"] = "ANCHOR:#",
+		["Global Anchor"] = "ANCHOR:G:#",
+		["Buff Bar Anchor"] = "ANCHOR:BB:#"
 	},
 }
 

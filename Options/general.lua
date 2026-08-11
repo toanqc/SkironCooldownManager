@@ -214,14 +214,33 @@ local function SelectGlobalSettingsTab(tabWidget, scrollFrame, group, options)
 		skinningSettings:SetTitle("General")
 		tabWidget:AddChild(skinningSettings)
 
-		local enableSkinning = AceGUI:Create("CheckBox")
-		enableSkinning:SetRelativeWidth(0.33)
-		enableSkinning:SetLabel("Enable Skinning")
-		enableSkinning:SetValue(options.enableSkinning)
-		enableSkinning:SetCallback("OnValueChanged", function(_, _, value)
-			options.enableSkinning = value
+		local enableIconSkinning = AceGUI:Create("CheckBox")
+		enableIconSkinning:SetRelativeWidth(0.33)
+		enableIconSkinning:SetLabel("Enable Icon Skinning")
+		enableIconSkinning:SetValue(options.enableIconSkinning)
+		enableIconSkinning:SetCallback("OnValueChanged", function(_, _, value)
+			SCM.ShowReloadPopup({
+				checkbox = enableIconSkinning,
+				options = options,
+				key = "enableIconSkinning",
+				value = value,
+			})
 		end)
-		skinningSettings:AddChild(enableSkinning)
+		skinningSettings:AddChild(enableIconSkinning)
+
+		local enableBuffBarSkinning = AceGUI:Create("CheckBox")
+		enableBuffBarSkinning:SetRelativeWidth(0.33)
+		enableBuffBarSkinning:SetLabel("Enable Buff Bar Skinning")
+		enableBuffBarSkinning:SetValue(options.enableBuffBarSkinning)
+		enableBuffBarSkinning:SetCallback("OnValueChanged", function(_, _, value)
+			SCM.ShowReloadPopup({
+				checkbox = enableBuffBarSkinning,
+				options = options,
+				key = "enableBuffBarSkinning",
+				value = value,
+			})
+		end)
+		skinningSettings:AddChild(enableBuffBarSkinning)
 
 		local showAnchorHighlight = AceGUI:Create("CheckBox")
 		showAnchorHighlight:SetValue(options.showAnchorHighlight)
@@ -383,6 +402,8 @@ local function SelectGlobalSettingsTab(tabWidget, scrollFrame, group, options)
 			SCM:ApplyAttributeDriver()
 			SCM:CreateAllCustomIcons()
 		end)
+
+	elseif group == "Auras" then
 		local auraSettings = AceGUI:Create("InlineGroup")
 		auraSettings:SetLayout("flow")
 		auraSettings:SetFullWidth(true)
@@ -390,8 +411,8 @@ local function SelectGlobalSettingsTab(tabWidget, scrollFrame, group, options)
 		tabWidget:AddChild(auraSettings)
 
 		local hideBuffsWhenInactive = AceGUI:Create("CheckBox")
-		hideBuffsWhenInactive:SetRelativeWidth(0.33)
-		hideBuffsWhenInactive:SetLabel('Disable "Hide When Inactive"')
+		hideBuffsWhenInactive:SetRelativeWidth(0.5)
+		hideBuffsWhenInactive:SetLabel('Disable "Hide When Inactive" (Buff Icons)')
 		hideBuffsWhenInactive:SetValue(options.hideBuffsWhenInactive)
 		hideBuffsWhenInactive:SetDisabled(not LibEditModeOverride:CanEditActiveLayout())
 		SCM.Utils.SetDisabledTooltip(hideBuffsWhenInactive, "Enable a custom edit mode profile first, then reopen options.")
@@ -403,12 +424,12 @@ local function SelectGlobalSettingsTab(tabWidget, scrollFrame, group, options)
 			options.hideBuffsWhenInactive = value
 
 			SCM:SetHideWhenInactive(value)
-			SCM.RefreshCooldownViewerData(true)
+			SCM:ApplyBuffIconCDManagerConfig()
 		end)
 		hideBuffsWhenInactive:SetCallback("OnEnter", function(self)
 			GameTooltip:SetOwner(self.frame, "ANCHOR_CURSOR")
 			GameTooltip:AddLine(
-				'This will disable the checkbox "Hide When Inactive" in the Blizzard CDM settings. SCM will still hide all buffs that are not tracked but this allows you to show buffs at all times.',
+				'Disables "Hide When Inactive" only for Blizzard buff icons. Untracked buffs remain hidden.',
 				1,
 				1,
 				1,
@@ -420,6 +441,38 @@ local function SelectGlobalSettingsTab(tabWidget, scrollFrame, group, options)
 			GameTooltip:Hide()
 		end)
 		auraSettings:AddChild(hideBuffsWhenInactive)
+
+		local hideBuffBarsWhenInactive = AceGUI:Create("CheckBox")
+		hideBuffBarsWhenInactive:SetRelativeWidth(0.5)
+		hideBuffBarsWhenInactive:SetLabel('Disable "Hide When Inactive" (Buff Bars)')
+		hideBuffBarsWhenInactive:SetValue(options.disableBuffBarHideWhenInactive)
+		hideBuffBarsWhenInactive:SetDisabled(not LibEditModeOverride:CanEditActiveLayout())
+		SCM.Utils.SetDisabledTooltip(hideBuffBarsWhenInactive, "Enable a custom edit mode profile first, then reopen options.")
+		hideBuffBarsWhenInactive:SetCallback("OnValueChanged", function(_, _, value)
+			if InCombatLockdown() then
+				return
+			end
+
+			options.disableBuffBarHideWhenInactive = value
+
+			SCM:SetBuffBarHideWhenInactive(value)
+			SCM:ApplyBuffBarCDManagerConfig()
+		end)
+		hideBuffBarsWhenInactive:SetCallback("OnEnter", function(self)
+			GameTooltip:SetOwner(self.frame, "ANCHOR_CURSOR")
+			GameTooltip:AddLine(
+				'Disables "Hide When Inactive" only for Blizzard buff bars. Configured bars remain visible while inactive.',
+				1,
+				1,
+				1,
+				true
+			)
+			GameTooltip:Show()
+		end)
+		hideBuffBarsWhenInactive:SetCallback("OnLeave", function()
+			GameTooltip:Hide()
+		end)
+		auraSettings:AddChild(hideBuffBarsWhenInactive)
 
 		if not LibEditModeOverride:CanEditActiveLayout() then
 			AddInfoText(auraSettings, "Enable a custom edit mode profile to use this feature. Reopen the opens once you did")
@@ -679,6 +732,7 @@ local function SelectGlobalSettingsTab(tabWidget, scrollFrame, group, options)
 		end)
 		chargeSettings:AddChild(chargeColour)
 
+	elseif group == "Cooldowns" then
 		local cooldownTextSettings = AceGUI:Create("InlineGroup")
 		cooldownTextSettings:SetLayout("flow")
 		cooldownTextSettings:SetFullWidth(true)

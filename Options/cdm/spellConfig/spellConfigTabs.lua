@@ -9,6 +9,21 @@ local stateTypeTree = {
 	{ value = "desaturate", text = "Desaturate" },
 	{ value = "glow", text = "Glow" },
 	{ value = "border", text = "Border" },
+	{ value = "cooldown", text = "Cooldown" },
+}
+
+local buffBarTabs = {
+	{ value = "general", text = "General" },
+	{ value = "subregion", text = "Subregions (Alpha)" },
+	{
+		value = "state",
+		text = "States (Alpha)",
+		children = {
+			{ value = "visibility", text = "Visibility" },
+			{ value = "glow", text = "Glow" },
+			{ value = "border", text = "Border" },
+		},
+	},
 }
 
 local iconTypeTabs = {
@@ -23,6 +38,7 @@ local iconTypeTabs = {
 		{ value = "display", text = "Display" },
 	},
 	item = {
+		{ value = "display", text = "Display" },
 		{ value = "items", text = "Items" },
 	},
 	timer = {},
@@ -76,7 +92,7 @@ function CDMOptions.CreateSpellConfigTabs(parentScrollFrame, iconSettings, butto
 		iconSettingsTabs:SetFullWidth(true)
 		iconSettingsTabs:SetHeight(410)
 		iconSettingsTabs:SetAutoAdjustHeight(false)
-		iconSettingsTabs:SetTree(isBuffBar and { { value = "general", text = "General" } } or iconTypeTabs[buttonData.iconType])
+		iconSettingsTabs:SetTree(isBuffBar and buffBarTabs or iconTypeTabs[buttonData.iconType])
 		iconSettingsTabs:SetCallback("OnGroupSelected", function(self, _, group)
 			self:ReleaseChildren()
 			local stateType = group:match("%c([^%c]+)$")
@@ -85,8 +101,6 @@ function CDMOptions.CreateSpellConfigTabs(parentScrollFrame, iconSettings, butto
 				CDMOptions.CreateGeneralTabSettings(self, iconSettings, parentScrollFrame, buttonFrame, buttonData, iconConfig, anchorIndex, mode, isGlobal, isBuffBar)
 			elseif group == "cooldown" then
 				CDMOptions.CreateCooldownTabSettings(self, iconSettings, parentScrollFrame, buttonFrame, buttonData, iconConfig, anchorIndex, mode, isGlobal, isBuffBar)
-			elseif group == "visibility" then
-				CDMOptions.CreateVisibilityTabSettings(self, iconSettings, parentScrollFrame, buttonFrame, buttonData, iconConfig, anchorIndex, mode, isGlobal, isBuffBar)
 			elseif group == "display" then
 				CDMOptions.CreateDisplayTabSettings(self, iconSettings, parentScrollFrame, buttonFrame, buttonData, iconConfig, anchorIndex, mode, isGlobal, isBuffBar)
 			elseif group == "load" then
